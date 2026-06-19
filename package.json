@@ -1,0 +1,23 @@
+{
+  "name": "opencode-memory-enhanced",
+  "version": "1.0.0",
+  "description": "Advanced autonomous memory plugin: auto-remember, predictive recall, knowledge graph, hybrid FTS5+vector search, session scan, curated memory, procedural skills, all-local",
+  "author": "MrCarb0n",
+  "license": "MIT",
+  "main": "memory-enhanced.ts",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit",
+    "preinstall": "node install.js"
+  },
+  "dependencies": {
+    "@opencode-ai/plugin": "^1.16.2",
+    "fts5-sql-bundle": "^1.0.2",
+    "sql.js": "^1.14.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  }
+}

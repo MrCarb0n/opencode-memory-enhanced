@@ -1,0 +1,45 @@
+{
+  "name": "opencode-memory-enhanced",
+  "version": "1.0.0",
+  "description": "Advanced autonomous memory plugin: auto-remember, predictive recall, knowledge graph, hybrid FTS5+vector search, session scan, curated memory, procedural skills, all-local",
+  "author": "MrCarb0n",
+  "license": "MIT",
+  "type": "local",
+  "main": "memory-enhanced.ts",
+  "tools": [
+    {"name": "memory-query", "description": "Search, browse, and explore memories and entities. Modes: recall (default) — FTS5+vector search with pagination; inject — context injection for a task; browse — paginated list with detail/delete; entity — knowledge graph entity search with relationship traversal"},
+    {"name": "memory-store", "description": "Store memories, import data, and manage procedural skills. Modes: store (default) — save with auto-tags, entities, dedup; import — bulk import from JSON export; skill — manage skills (add/apply/list)"},
+    {"name": "memory-learn", "description": "Store structured facts and track conversation intent. Modes: learn (default) — fact with entity tracking, relationships, pattern detection; arc — track conversation intent and topics"},
+    {"name": "memory-info", "description": "System information and configuration. Modes: status (default) — stats, health, embedding model; config — view/update settings with schema validation; timeline — activity history"},
+    {"name": "memory-curated", "description": "Manage curated memory stores and approval queue. Modes: list (default) — show entries and pending writes; add — add entry to agent_note/user_profile; replace — replace matching entry; remove — remove matching entry; approve — approve pending write; reject — reject pending write"},
+    {"name": "memory-maintain", "description": "System maintenance tasks. Modes: optimize (default) — prune stale, dedup, backfill embeddings, vacuum; dedup — find and merge duplicates with threshold/dryRun; conflicts — detect contradictory feedback memories"},
+    {"name": "memory-export", "description": "Export memories and knowledge graph. Modes: json (default) — full export with entities/relationships/patterns; md — Markdown; svg — inline SVG graph; dot — Graphviz DOT graph"},
+    {"name": "memory-scan", "description": "Scan past session logs from OpenCode DB or API. Args: limit (number, default 50), full (boolean, scan all sessions), source (string: 'db', 'api', or 'auto')"}
+  ],
+  "hooks": [
+    "chat.message",
+    "session.created",
+    "session.updated",
+    "session.idle",
+    "session.compacted",
+    "session.deleted",
+    "session.error",
+    "experimental.session.compacting",
+    "experimental.chat.system.transform",
+    "tool.execute.before",
+    "tool.execute.after",
+    "permission.ask",
+    "config",
+    "dispose"
+  ],
+  "data": {
+    "database": "~/.opencode/memory-enhanced.db",
+    "scope": "global",
+    "externalDeps": false,
+    "zeroSetup": true,
+    "tuiIntegration": true,
+    "autoScan": true,
+    "agent_note_limit": 2200,
+    "user_profile_limit": 1375
+  }
+}
