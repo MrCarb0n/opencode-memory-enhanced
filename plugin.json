@@ -1,0 +1,8 @@
+{
+  "name": "opencode-memory-enhanced",
+  "version": "1.0.0",
+  "description": "Advanced autonomous memory plugin: auto-remember, predictive recall, knowledge graph, hybrid FTS5+vector search, session scan, curated memory, procedural skills, all-local",
+  "author": "MrCarb0n",
+  "license": "MIT",
+  "main": "memory-enhanced.ts"
+}
