@@ -1,0 +1,268 @@
+import { getOne, getAll, runInsert, execSingle, now, searchFts5 } from "./db"
+import { cosineSimilarity as textCosSim, tokenize } from "./utils"
+import { extractEntities, generateAutoTags, linkEntity, discoverRelationships, autoLinkMemories } from "./entities"
+import { isImportantMessage, extractImportance, detectMemoryType, type SearchResult } from "./types"
+import { getConfig } from "./config"
+import { Tables } from "./constants"
+import { embed, vectorCosineSimilarity, serializeEmbedding, deserializeEmbedding, embeddingStatus } from "./embeddings"
+import { showToast } from "./helpers"
+
+const M = Tables.memories
+
+export const pendingEmbeds: Promise<unknown>[] = []
+
+// ─── Embedding-backed precomputeVector ────────────────────────────
+// Generates a semantic embedding via random projection of TF-IDF features.
+// Falls back to TF-IDF frequency vector if model unavailable.
+export async function precomputeVector(content: string): Promise<string> {
+  const cfg = getConfig()
+  if (cfg.enable_vectors) {
+    const vec = await embed(content)
+    if (vec.length > 0) return serializeEmbedding(vec)
+  }
+  // Fallback: TF-IDF frequency vector (legacy)
+  const tokens = tokenize(content.toLowerCase())
+  const freq: Record<string, number> = {}
+  for (const t of tokens) freq[t] = (freq[t] ?? 0) + 1
+  const words = Object.keys(freq)
+  if (words.length === 0) return ""
+  const norm = Math.sqrt(words.reduce((sum, w) => sum + freq[w] * freq[w], 0))
+  for (const w of words) freq[w] /= norm
+  return JSON.stringify(freq)
+}
+
+// ─── Vector Similarity Search ─────────────────────────────────────
+async function vectorSearch(
+  query: string,
+  limit = 10,
+  whereExtra = "",
+  params: unknown[] = []
+): Promise<SearchResult[]> {
+  const status = embeddingStatus()
+  if (!status.loaded) return []
+
+  const queryVec = await embed(query)
+  if (queryVec.length === 0) return []
+
+  // Load all memories with embeddings
+  // Strip table alias prefixes (e.g. "m.scope" -> "scope") — vector query has no alias
+  const cleanExtra = whereExtra.replace(/\bm\.[a-zA-Z_]+/g, (match) => match.replace("m.", ""))
+  const whereClause = cleanExtra ? `AND ${cleanExtra}` : ""
+  const rows = getAll(
+    `SELECT id, content, type, scope, importance, relevance_score, access_count, tags, keywords, embedding
+     FROM "${M}" WHERE embedding != '' AND embedding IS NOT NULL ${whereClause} ORDER BY timestamp DESC LIMIT 2000`,
+    params
+  )
+
+  const scored = rows
+    .map((r) => {
+      const memVec = deserializeEmbedding(r.embedding as string)
+      if (memVec.length === 0) return null
+      return {
+        ...r,
+        embedding_score: vectorCosineSimilarity(queryVec, memVec),
+      }
+    })
+    .filter((r): r is NonNullable<typeof r> => r !== null)
+    .sort((a, b) => b.embedding_score - a.embedding_score)
+    .slice(0, limit)
+
+  return scored as SearchResult[]
+}
+
+// ─── Hybrid Search (FTS5 + Vector) ────────────────────────────────
+// Combines keyword FTS5 results with neural vector results.
+// Uses Reciprocal Rank Fusion (RRF) to merge rankings.
+export async function hybridSearch(
+  query: string,
+  limit = 10,
+  whereExtra = "",
+  params: unknown[] = []
+): Promise<SearchResult[]> {
+  const k = 60 // RRF constant
+
+  // Run FTS5 + vector search in parallel
+  const [ftsResults, vecResults] = await Promise.all([
+    Promise.resolve(searchFts5(query, limit * 2, whereExtra, params)),
+    vectorSearch(query, limit * 2, whereExtra, params),
+  ])
+
+  // Merge via RRF
+  const rrfScores = new Map<number, { ftsRank: number; vecRank: number; row: any }>()
+
+  for (let i = 0; i < ftsResults.length; i++) {
+    const r = ftsResults[i]
+    rrfScores.set(r.id, { ftsRank: i + 1, vecRank: Infinity, row: r })
+  }
+
+  for (let i = 0; i < vecResults.length; i++) {
+    const r = vecResults[i]
+    if (rrfScores.has(r.id)) {
+      rrfScores.get(r.id)!.vecRank = i + 1
+    } else {
+      rrfScores.set(r.id, { ftsRank: Infinity, vecRank: i + 1, row: r })
+    }
+  }
+
+  const merged = Array.from(rrfScores.values())
+    .map(({ ftsRank, vecRank, row }) => ({
+      ...row,
+      score: 1 / (k + ftsRank) + 1 / (k + vecRank),
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+
+  return merged
+}
+
+export function autoRemember(client: any, text: string, sessionId: string, projectPath: string): void {
+  const cfg = getConfig()
+  if (!cfg.auto_remember) return
+  if (!isImportantMessage(text)) return
+
+  const clean = text.substring(0, cfg.max_memory_length).trim()
+  const importance = extractImportance(clean)
+  const memoryType = detectMemoryType(clean)
+  const keywords = extractEntities(clean).join(",").toLowerCase()
+  const autoTags = generateAutoTags(clean).join(",")
+
+  const existing = getOne(
+    `SELECT id, importance, access_count FROM "${M}" WHERE content = ? AND session_id = ?`,
+    [clean, sessionId]
+  )
+  if (existing) {
+    const boosted = Math.min((existing.importance as number) + 1, 10)
+    execSingle(
+      `UPDATE "${M}" SET importance = ?, access_count = access_count + 1, last_accessed = ? WHERE id = ?`,
+      [boosted, now(), existing.id]
+    )
+    return
+  }
+
+  const duplicate = getOne(
+    `SELECT id, content FROM "${M}" WHERE scope = 'project' AND type = ? ORDER BY id DESC LIMIT 1`,
+    [memoryType]
+  )
+  if (duplicate && textCosSim(clean, duplicate.content as string) > 0.8) {
+    const dupImportance = (getOne(`SELECT importance FROM "${M}" WHERE id = ?`, [duplicate.id])?.importance as number) || importance
+    const boosted = Math.min(dupImportance + 1, 10)
+    execSingle(
+      `UPDATE "${M}" SET access_count = access_count + 1, last_accessed = ?, importance = MAX(importance, ?) WHERE id = ?`,
+      [now(), boosted, duplicate.id]
+    )
+    return
+  }
+
+  const memoryId = runInsert(
+    `INSERT INTO "${M}" (content, type, scope, importance, session_id, relevance_score, keywords, tags, project_path) VALUES (?, ?, 'project', ?, ?, 0.5, ?, ?, ?)`,
+    [clean, memoryType, importance, sessionId, keywords, autoTags, projectPath]
+  )
+  linkEntity(clean, memoryId, projectPath)
+  discoverRelationships(memoryId)
+  autoLinkMemories(memoryId)
+  showToast(client, `Stored: ${clean.substring(0, 40)}`, "success", 2000)
+
+  // Generate embedding async (non-blocking)
+  const p = precomputeVector(clean).then((emb) => {
+    if (memoryId > 0 && emb) execSingle(`UPDATE "${M}" SET embedding = ? WHERE id = ?`, [emb, memoryId])
+  }).catch((e) => console.debug("[memory-enhanced] embedding failed:", e))
+  pendingEmbeds.push(p)
+  p.finally(() => { const i = pendingEmbeds.indexOf(p); if (i >= 0) pendingEmbeds.splice(i, 1) })
+}
+
+export { applyMemoryDecay } from "./optimize"
+
+export async function scoreMemories(query: string, memories: any[], limit: number): Promise<SearchResult[]> {
+  const status = embeddingStatus()
+  let queryVec: number[] = []
+  if (status.loaded) {
+    queryVec = await embed(query)
+  }
+
+  const scored = memories
+    .map((r) => {
+      let similarity: number
+      if (queryVec.length > 0) {
+        const memVec = deserializeEmbedding(r.embedding)
+        if (memVec.length > 0) {
+          similarity = vectorCosineSimilarity(queryVec, memVec)
+        } else {
+          similarity = textCosSim(query, `${r.content} ${r.tags ?? ""} ${r.keywords ?? ""}`)
+        }
+      } else {
+        similarity = textCosSim(query, `${r.content} ${r.tags ?? ""} ${r.keywords ?? ""}`)
+      }
+      return { ...r, similarity }
+    })
+    .sort(
+      (a, b) =>
+        (b.similarity * 0.6 + b.importance / 10 * 0.4) -
+        (a.similarity * 0.6 + a.importance / 10 * 0.4)
+    )
+    .slice(0, limit)
+  return scored as SearchResult[]
+}
+
+const BM25_K1 = 1.2
+const BM25_B = 0.75
+
+function bm25(query: string, memories: any[]): any[] {
+  const N = memories.length
+  let totalLen = 0
+  const docTerms: { tokens: string[]; content: string }[] = []
+  for (const mem of memories) {
+    const text = `${mem.content} ${mem.tags ?? ""} ${mem.keywords ?? ""}`
+    const tokens = tokenize(text)
+    docTerms.push({ tokens, content: text })
+    totalLen += tokens.length
+  }
+  const avgdl = totalLen / N
+
+  const qt = tokenize(query)
+  if (qt.length === 0) return memories.map((m) => ({ ...m, score: 0 }))
+
+  const df = new Map<string, number>()
+  for (const { tokens } of docTerms) {
+    for (const t of new Set(tokens)) df.set(t, (df.get(t) || 0) + 1)
+  }
+
+  return memories.map((mem, i) => {
+    const { tokens } = docTerms[i]
+    const docLen = tokens.length
+    const tf = new Map<string, number>()
+    for (const t of tokens) tf.set(t, (tf.get(t) || 0) + 1)
+
+    let score = 0
+    for (const t of qt) {
+      const idf = Math.log((N - (df.get(t) || 0) + 0.5) / ((df.get(t) || 0) + 0.5) + 1)
+      const termFreq = tf.get(t) || 0
+      const numerator = termFreq * (BM25_K1 + 1)
+      const denominator = termFreq + BM25_K1 * (1 - BM25_B + BM25_B * docLen / avgdl)
+      score += idf * numerator / denominator
+    }
+
+    score += (mem.importance as number) * 0.01
+    score += (mem.relevance_score as number) * 0.05
+    score += Math.min((mem.access_count as number) * 0.005, 0.1)
+    return { ...mem, score }
+  })
+}
+
+const SEMANTIC_SEARCH_LIMIT = 500
+
+export async function semanticSearch(query: string, limit = 10): Promise<SearchResult[]> {
+  const status = embeddingStatus()
+  if (status.loaded) {
+    // Use vector search when embedding model is available
+    const results = await vectorSearch(query, limit, "1=1")
+    if (results.length > 0) return results
+  }
+  // Fallback to BM25
+  const allMemories = getAll(
+    `SELECT id, content, type, scope, importance, tags, keywords, relevance_score, access_count, embedding FROM "${M}" ORDER BY timestamp DESC LIMIT ${SEMANTIC_SEARCH_LIMIT}`
+  )
+  return bm25(query, allMemories)
+    .filter((m) => m.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit) as SearchResult[]
+}

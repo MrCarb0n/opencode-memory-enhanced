@@ -1,0 +1,33 @@
+*.db
+*.log
+current_context.json
+node_modules/
+*.corrupt.*
+
+# GitNexus knowledge graph index (internal, regenerated per-machine)
+.gitnexus/
+
+# Local memory database
+.open-mem/
+
+# Stale agent instructions (removed from history)
+CLAUDE.md
+
+# Generated/stale artifacts
+merge-db.sql
+merge-db.mjs
+vendor/
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor artifacts
+*.swp
+*.swo
+*.swn
+*~
+*.bak
+*.tmp
+.tsbuildinfo
