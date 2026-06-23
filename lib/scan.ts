@@ -2,7 +2,7 @@ import { getOne, runInsert, transaction, execSingle } from "./db"
 import { extractSessionMemories, type MemoryRecord } from "./extractor"
 import { linkEntity, discoverRelationships, autoLinkMemories } from "./entities"
 import { join } from "path"
-import { readFileSync, existsSync } from "fs"
+import { existsSync } from "fs"
 import { homedir, cpus } from "os"
 import { showToast } from "./helpers"
 import { IS_WIN } from "./constants"
@@ -23,14 +23,6 @@ function getOpenCodeDBPath(): string {
   return ""
 }
 
-let _sqlJsPromise: Promise<any> | null = null
-async function getSqlJs(): Promise<any> {
-  if (!_sqlJsPromise) {
-    _sqlJsPromise = import("sql.js").then((m: any) => (m.default || m)())
-  }
-  return _sqlJsPromise
-}
-
 async function queryOpenCodeDB(sql: string, params: any[] = []): Promise<any[]> {
   const dbPath = getOpenCodeDBPath()
   if (!dbPath) return []
@@ -42,27 +34,9 @@ async function queryOpenCodeDB(sql: string, params: any[] = []): Promise<any[]> 
     const result = params.length > 0 ? stmt.all(...params) : stmt.all()
     odb.close()
     return result
-  } catch {
-    try {
-      const buf = readFileSync(dbPath)
-      const SQL = await getSqlJs()
-      const odb = new SQL.Database(buf)
-      let stmt: any
-      if (params.length > 0) {
-        stmt = odb.prepare(sql)
-        stmt.bind(params)
-      } else {
-        stmt = odb.prepare(sql)
-      }
-      const rows: any[] = []
-      while (stmt.step()) rows.push(stmt.getAsObject())
-      stmt.free()
-      odb.close()
-      return rows
-    } catch (e2) {
-      console.debug("[memory-enhanced] Cannot read OpenCode DB:", e2)
-      return []
-    }
+  } catch (e) {
+    console.debug("[memory-enhanced] Cannot read OpenCode DB:", e)
+    return []
   }
 }
 

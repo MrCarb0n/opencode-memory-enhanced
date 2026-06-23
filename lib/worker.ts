@@ -1,4 +1,3 @@
-import { readFileSync } from "fs"
 import { extractSessionMemories, type MemoryRecord } from "./extractor"
 
 async function queryOpenCodeDB(dbPath: string, sql: string, params: any[] = []): Promise<any[]> {
@@ -11,21 +10,7 @@ async function queryOpenCodeDB(dbPath: string, sql: string, params: any[] = []):
     odb.close()
     return result
   } catch {
-    try {
-      const buf = readFileSync(dbPath)
-      const sqlMod = await import("sql.js")
-      const SQL = await (sqlMod.default || sqlMod)()
-      const odb = new SQL.Database(buf)
-      let stmt = odb.prepare(sql)
-      if (params.length > 0) stmt.bind(params)
-      const rows: any[] = []
-      while (stmt.step()) rows.push(stmt.getAsObject())
-      stmt.free()
-      odb.close()
-      return rows
-    } catch {
-      return []
-    }
+    return []
   }
 }
 
