@@ -13,10 +13,12 @@
   },
   "dependencies": {
     "@opencode-ai/plugin": "^1.16.2",
+    "better-sqlite3": "^12.11.1",
     "fts5-sql-bundle": "^1.0.2",
     "sql.js": "^1.14.1"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.10.0",
     "typescript": "^5.7.0"
   }
