@@ -23,7 +23,7 @@ function configDir() {
   const candidates = platform() === "win32"
     ? [join(homedir(), ".config", "opencode"), join(process.env.APPDATA || join(homedir(), "AppData", "Roaming"), "opencode")]
     : [join(process.env.XDG_CONFIG_HOME || join(homedir(), ".config"), "opencode")]
-  return candidates.find(c => existsSync(join(c, "opencode.jsonc"))) || candidates[0]
+  return candidates.find(c => existsSync(join(c, "opencode.jsonc")) || existsSync(join(c, "opencode.json"))) || candidates[0]
 }
 
 function nodeVersion() {
