@@ -72,7 +72,7 @@ const CONCURRENCY = Math.min(cpus().length, 8) || 4
 function insertRecords(records: MemoryRecord[], projectPath: string): number {
   let stored = 0
   for (const rec of records) {
-    const existing = getOne("SELECT id FROM memories WHERE content = ? AND session_id = ?", [rec.content, rec.session_id])
+    const existing = getOne("SELECT id FROM memories WHERE content = ?", [rec.content])
     if (existing) continue
     const memoryId = runInsert(
       "INSERT INTO memories (content, type, scope, importance, session_id, relevance_score, keywords, tags, project_path) VALUES (?, ?, 'project', ?, ?, ?, ?, ?, ?)",

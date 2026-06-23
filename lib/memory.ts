@@ -127,8 +127,8 @@ export function autoRemember(client: any, text: string, sessionId: string, proje
   const autoTags = generateAutoTags(clean).join(",")
 
   const existing = getOne(
-    `SELECT id, importance, access_count FROM "${M}" WHERE content = ? AND session_id = ?`,
-    [clean, sessionId]
+    `SELECT id, importance, access_count FROM "${M}" WHERE content = ?`,
+    [clean]
   )
   if (existing) {
     const boosted = Math.min((existing.importance as number) + 1, 10)

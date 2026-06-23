@@ -28,6 +28,7 @@ export interface MemoryConfig {
   user_profile_limit: number
   security_scan: boolean
   background_consolidate: boolean
+  context_budget: number
 }
 
 let _cfg: MemoryConfig | null = null
@@ -125,6 +126,7 @@ const DEFAULTS: MemoryConfig = {
   user_profile_limit: 1375,
   security_scan: true,
   background_consolidate: true,
+  context_budget: 2000,
 }
 
 function deepEqual(a: unknown, b: unknown): boolean {
@@ -169,8 +171,8 @@ export function loadConfig(): MemoryConfig {
 }
 
 export function getConfig(): MemoryConfig {
-  if (!_cfg) return loadConfig()
-  return _cfg
+  if (!_cfg) loadConfig()
+  return { ..._cfg! }
 }
 
 function atomicWrite(path: string, content: string): void {

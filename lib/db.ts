@@ -136,12 +136,22 @@ export function now(): string {
 }
 
 // ─── Auto-save ────────────────────────────────────────────────────
-export function startAutoSave(intervalMs = 10000) {
-  if (_saveInterval) clearInterval(_saveInterval)
-  _saveInterval = setInterval(saveDb, intervalMs)
+export function startAutoSave() {
+  // auto-save is handled by scheduleSave() calls on mutations
+}
+
+let _saveTimer: ReturnType<typeof setTimeout> | null = null
+
+export function scheduleSave() {
+  if (_saveTimer) clearTimeout(_saveTimer)
+  _saveTimer = setTimeout(saveDb, 500)
 }
 
 export function stopAutoSave() {
+  if (_saveTimer) {
+    clearTimeout(_saveTimer)
+    _saveTimer = null
+  }
   if (_saveInterval) {
     clearInterval(_saveInterval)
     _saveInterval = null

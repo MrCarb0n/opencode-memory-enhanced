@@ -1,5 +1,5 @@
 import type { Plugin, PluginInput } from "@opencode-ai/plugin"
-import { initDb, getDb, execSingle, getOne, getAll, runInsert, now, saveDb, startAutoSave, stopAutoSave, initFts5, searchFts5 } from "./lib/db"
+import { initDb, getDb, execSingle, getOne, getAll, runInsert, now, saveDb, scheduleSave, startAutoSave, stopAutoSave, initFts5, searchFts5 } from "./lib/db"
 import { autoRemember, applyMemoryDecay, hybridSearch, pendingEmbeds } from "./lib/memory"
 import { loadConfig, getConfig, saveConfig } from "./lib/config"
 import { showToast, appendPrompt, updateAgentsMd } from "./lib/helpers"
@@ -56,11 +56,9 @@ export default (async ({ client, project, directory }: PluginInput) => {
     const cfg = getConfig()
     if (!cfg.background_consolidate) return
     _isConsolidating = true
-    try {
-      detectEntityPatterns(projectPath)
-    } finally {
-      _isConsolidating = false
-    }
+    setTimeout(() => {
+      try { detectEntityPatterns(projectPath) } finally { _isConsolidating = false }
+    }, 0)
   }
 
   function closeArc(sid: string) {
@@ -94,24 +92,24 @@ export default (async ({ client, project, directory }: PluginInput) => {
           case "session.idle": {
             applyMemoryDecay()
             closeArc(event.properties.sessionID)
-            detectEntityPatterns(projectPath)
-            saveDb()
+            setTimeout(() => detectEntityPatterns(projectPath), 0)
+            scheduleSave()
             break
           }
           case "session.compacted": {
             _curatedBlock = null
             maybeConsolidate()
-            saveDb()
+            scheduleSave()
             break
           }
           case "session.deleted": {
-            saveDb()
+            scheduleSave()
             break
           }
           case "session.error": {
             const err = String(event.properties.error ?? "unknown").substring(0, 300)
             runInsert("INSERT INTO memories (content, type, scope, importance, session_id, keywords) VALUES (?, 'error', 'project', 4, ?, 'error')", [`Session error: ${err}`, event.properties.sessionID ?? "<unknown>"])
-            saveDb()
+            scheduleSave()
             break
           }
         }
@@ -144,8 +142,7 @@ export default (async ({ client, project, directory }: PluginInput) => {
       if (!_dbReady) return
       try {
         captureFrozenSnapshot()
-        const MAX_BUDGET = 2000
-        let budget = MAX_BUDGET
+        let budget = getConfig().context_budget
         const memories = getAll("SELECT content, type, importance FROM memories WHERE scope = 'project' AND importance >= 5 ORDER BY importance DESC, last_accessed DESC LIMIT 8")
         if (memories.length > 0) {
           const block = `\n# Persistent Memories\n\n${memories.map((r) => `[${r.type}|i:${r.importance}] ${r.content.trim().substring(0, 120)}`).join("\n")}\n`
@@ -171,10 +168,9 @@ export default (async ({ client, project, directory }: PluginInput) => {
           const results = searchFts5(query, 1, "m.scope = 'project' AND m.importance >= 5")
           if (results.length > 0) {
             const ctx = results[0].content.substring(0, toolName === "bash" ? 60 : 120)
-            if (toolName === "bash") {
-              client.app.log({ body: { service: "memory-enhanced", level: "debug", message: `Context for ${toolName}: ${ctx}` } })
-            } else if (output?.args) {
-              output.args._memory_context = `Relevant: ${ctx}`
+            client.app.log({ body: { service: "memory-enhanced", level: "debug", message: `Context for ${toolName}: ${ctx}` } })
+            if (toolName === "read" || toolName === "edit" || toolName === "grep" || toolName === "glob") {
+              if (output.args) output.args._memory_context = `Relevant: ${ctx}`
             }
           }
         }
@@ -220,8 +216,7 @@ export default (async ({ client, project, directory }: PluginInput) => {
       if (!_dbReady) return
       try {
         captureFrozenSnapshot()
-        const MAX_BUDGET = 2000
-        let budget = MAX_BUDGET
+        let budget = getConfig().context_budget
         const mems = getAll("SELECT content, type FROM memories WHERE scope = 'project' AND importance >= 7 ORDER BY importance DESC, last_accessed DESC LIMIT 6")
         if (mems.length > 0) {
           const block = `\n## Persistent Memories\n${mems.map((r: any) => `  - [${r.type}] ${r.content.substring(0, 100)}`).join("\n")}\n`
@@ -260,6 +255,7 @@ export default (async ({ client, project, directory }: PluginInput) => {
         if (input.user_profile_limit !== undefined) current.user_profile_limit = input.user_profile_limit
         if (input.security_scan !== undefined) current.security_scan = input.security_scan
         if (input.background_consolidate !== undefined) current.background_consolidate = input.background_consolidate
+        if (input.context_budget !== undefined) current.context_budget = input.context_budget
         saveConfig(current)
       } catch (e) { console.error("[memory-enhanced] config error:", e) }
     },

@@ -4,5 +4,9 @@
   "description": "Advanced autonomous memory plugin: auto-remember, predictive recall, knowledge graph, hybrid FTS5+vector search, session scan, curated memory, procedural skills, all-local",
   "author": "MrCarb0n",
   "license": "MIT",
-  "main": "memory-enhanced.ts"
+  "main": "memory-enhanced.ts",
+  "repository": "github:MrCarb0n/opencode-memory-enhanced",
+  "keywords": ["memory", "knowledge-graph", "embeddings", "fts5", "opencode"],
+  "engines": { "opencode": ">=0.1.0" },
+  "permissions": ["read", "write"]
 }

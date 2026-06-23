@@ -4,6 +4,8 @@ import { truncate } from "../utils"
 import { generateAutoTags, linkEntity, discoverRelationships, autoLinkMemories } from "../entities"
 import { precomputeVector } from "../memory"
 import { showToast } from "../helpers"
+import { scanMemoryContent } from "../security"
+import { getConfig } from "../config"
 
 export function createStoreTool(client: any, projectPath: string) {
 
@@ -158,6 +160,11 @@ export function createStoreTool(client: any, projectPath: string) {
         }
 
         const content = String(args.content ?? "")
+        if (!content) { showToast(client, "Content required", "error"); return "(no content provided)" }
+        if (getConfig().security_scan) {
+          const scan = scanMemoryContent(content)
+          if (!scan.safe) { showToast(client, `Security: ${scan.reason}`, "error"); return `Stopped: ${scan.reason}` }
+        }
         const type = String(args.type ?? "conversation")
         const scope = String(args.scope ?? "project")
         const importance = (args.importance as number) || 5
