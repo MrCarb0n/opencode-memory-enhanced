@@ -121,11 +121,7 @@ export function deserializeEmbedding(raw: string | null): number[] {
 }
 
 // ─── Model Status ─────────────────────────────────────────────────
-export function embeddingStatus(): { loaded: boolean; loading: boolean; dim: number; model: string } {
-  return { loaded: true, loading: false, dim: EMBEDDING_DIM, model: "random-projection-tfidf" }
+export function embeddingStatus(): { loaded: boolean; dim: number; model: string } {
+  return { loaded: true, dim: EMBEDDING_DIM, model: "random-projection-tfidf" }
 }
 
-// ─── Preload ─────────────────────────────────────────────────────
-export function preloadEmbeddings(): boolean {
-  return !!_projectionMatrix || !!getProjectionMatrix()
-}

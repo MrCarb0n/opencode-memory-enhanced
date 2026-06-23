@@ -129,32 +129,6 @@ const DEFAULTS: MemoryConfig = {
   context_budget: 2000,
 }
 
-function deepEqual(a: unknown, b: unknown): boolean {
-  if (a === b) return true
-  if (typeof a !== typeof b) return false
-  if (Array.isArray(a) && Array.isArray(b)) {
-    if (a.length !== b.length) return false
-    return (a as unknown[]).every((v, i) => deepEqual(v, b[i]))
-  }
-  if (a && typeof a === "object" && b && typeof b === "object" && !Array.isArray(a) && !Array.isArray(b)) {
-    const ka = Object.keys(a as object), kb = Object.keys(b as object)
-    if (ka.length !== kb.length) return false
-    return ka.every(k => deepEqual((a as any)[k], (b as any)[k]))
-  }
-  return false
-}
-
-function configDiff(cfg: MemoryConfig): Partial<MemoryConfig> {
-  const delta: Record<string, unknown> = {}
-  for (const k of Object.keys(DEFAULTS) as (keyof MemoryConfig)[]) {
-    if (!deepEqual(cfg[k], DEFAULTS[k])) {
-      if (k === "db_path" && cfg[k] === Paths.db()) continue
-      delta[k] = cfg[k]
-    }
-  }
-  return delta as Partial<MemoryConfig>
-}
-
 export function loadConfig(): MemoryConfig {
   if (_cfg) return _cfg
   const configPath = Paths.userConfig()
@@ -184,12 +158,7 @@ function atomicWrite(path: string, content: string): void {
 export function saveConfig(cfg: MemoryConfig): void {
   _cfg = { ...cfg }
   try {
-    const delta = configDiff(cfg)
-    if (Object.keys(delta).length === 0) {
-      if (existsSync(Paths.userConfig())) atomicWrite(Paths.userConfig(), "{}")
-      return
-    }
-    atomicWrite(Paths.userConfig(), JSON.stringify(delta, null, 2))
+    atomicWrite(Paths.userConfig(), JSON.stringify(cfg, null, 2))
   } catch (e) {
     console.error("[memory-enhanced] failed to save config:", e)
   }

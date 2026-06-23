@@ -135,11 +135,6 @@ export function now(): string {
   return new Date().toISOString().replace("T", " ").replace("Z", "+00:00")
 }
 
-// ─── Auto-save ────────────────────────────────────────────────────
-export function startAutoSave() {
-  // auto-save is handled by scheduleSave() calls on mutations
-}
-
 let _saveTimer: ReturnType<typeof setTimeout> | null = null
 
 export function scheduleSave() {
@@ -245,8 +240,6 @@ export function buildFtsQuery(raw: string): string {
   }
   return parts.filter(Boolean).join(" AND ") || ""
 }
-
-export const ftsQuery = buildFtsQuery
 
 export function searchFts5(query: string, limit = 10, whereExtra = "", params: unknown[] = []): DbRow[] {
   const ftsQ = buildFtsQuery(query)

@@ -107,7 +107,7 @@ export function createInfoTool(client: any, _projectPath: string) {
           const patterns = count("SELECT COUNT(*) as c FROM learning_patterns")
           const embedded = count("SELECT COUNT(*) as c FROM memories WHERE embedding != '' AND embedding IS NOT NULL")
           const status = embeddingStatus()
-          const modelStatus = status.loaded ? `ready (${status.dim}d)` : status.loading ? "loading..." : "unavailable"
+          const modelStatus = status.loaded ? `ready (${status.dim}d)` : "unavailable"
           return [
             `── Memory v${VERSION} ───────────────`,
             `  Memories: ${total} (${stale} stale) · ${entities} entities · ${rels} rels · ${patterns} patterns`,

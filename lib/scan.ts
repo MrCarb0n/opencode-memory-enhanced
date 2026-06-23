@@ -3,7 +3,7 @@ import { extractSessionMemories, type MemoryRecord } from "./extractor"
 import { linkEntity, discoverRelationships, autoLinkMemories } from "./entities"
 import { join } from "path"
 import { existsSync } from "fs"
-import { homedir, cpus } from "os"
+import { homedir } from "os"
 import { showToast } from "./helpers"
 import { IS_WIN } from "./constants"
 
@@ -27,8 +27,14 @@ async function queryOpenCodeDB(sql: string, params: any[] = []): Promise<any[]> 
   const dbPath = getOpenCodeDBPath()
   if (!dbPath) return []
   try {
-    const mod = await import("better-sqlite3")
-    const Database = mod.default || mod
+    let Database: any
+    if (typeof Bun !== "undefined") {
+      const mod = await import("bun:sqlite")
+      Database = mod.Database
+    } else {
+      const mod = await import("better-sqlite3")
+      Database = mod.default || mod
+    }
     const odb = new Database(dbPath, { readonly: true })
     const stmt = odb.prepare(sql)
     const result = params.length > 0 ? stmt.all(...params) : stmt.all()
@@ -39,9 +45,6 @@ async function queryOpenCodeDB(sql: string, params: any[] = []): Promise<any[]> 
     return []
   }
 }
-
-const BATCH_SIZE = 5
-const CONCURRENCY = Math.min(cpus().length, 8) || 4
 
 function insertRecords(records: MemoryRecord[], projectPath: string): number {
   let stored = 0
@@ -84,58 +87,38 @@ export async function scanFromOpenCodeDB(client: any, projectPath: string, limit
   }
   if (unScannedIds.length === 0) return 0
 
-  showToast(client, `Scanning ${unScannedIds.length} sessions across ${Math.min(CONCURRENCY, Math.ceil(unScannedIds.length / BATCH_SIZE))} workers...`, "info", 3000)
+  showToast(client, `Scanning ${unScannedIds.length} sessions...`, "info", 3000)
 
-  const batches: string[][] = []
-  for (let i = 0; i < unScannedIds.length; i += BATCH_SIZE) {
-    batches.push(unScannedIds.slice(i, i + BATCH_SIZE))
-  }
-
-  const numWorkers = Math.min(CONCURRENCY, batches.length)
-  const workerBatches: string[][][] = []
-  for (let i = 0; i < numWorkers; i++) workerBatches.push([])
-  for (let i = 0; i < batches.length; i++) workerBatches[i % numWorkers].push(batches[i])
-
-  const workerUrl = new URL("./worker.ts", import.meta.url).href
-  const workerProgress = new Array(numWorkers).fill(0)
-  let lastToast = 0
   const allRecords: MemoryRecord[] = []
-  let workerErrors = 0
-
-  const promises = workerBatches.map((batchGroup, wi) => {
-    if (batchGroup.length === 0) return Promise.resolve(0)
-    return new Promise<number>((resolve) => {
-      const worker = new Worker(workerUrl, { type: "module" })
-      worker.onmessage = (e: MessageEvent) => {
-        const msg = e.data
-        if (msg.type === "progress") {
-          workerProgress[wi] = msg.done
-          if (msg.error) workerErrors++
-          const totalDone = workerProgress.reduce((a, b) => a + b, 0)
-          if (totalDone - lastToast >= 10 || totalDone === unScannedIds.length) {
-            showToast(client, `Scan: ${totalDone}/${unScannedIds.length} sessions`, "info", 1500)
-            lastToast = totalDone
+  for (const sid of unScannedIds) {
+    try {
+      const rows = await queryOpenCodeDB(
+        `SELECT data FROM message WHERE session_id = ? ORDER BY time_created`,
+        [sid]
+      )
+      for (const row of rows) {
+        try {
+          const msg = JSON.parse(row.data)
+          if (msg.parts) {
+            for (const part of msg.parts) {
+              if (part.type === "text" && part.text) {
+                const records = extractSessionMemories(
+                  [{ content: part.text }],
+                  { sid, title: "", model: "", agent: "" },
+                  projectPath
+                )
+                allRecords.push(...records)
+              }
+            }
           }
-        } else if (msg.type === "done") {
-          allRecords.push(...(msg.memories || []))
-          worker.terminate()
-          resolve(1)
+        } catch (e) {
+          console.debug("[memory-enhanced] failed to parse message:", e)
         }
       }
-      worker.onerror = () => {
-        workerErrors++
-        worker.terminate()
-        resolve(0)
-      }
-      worker.postMessage({
-        dbPath,
-        sessionIds: batchGroup.flat(),
-        projectPath,
-      })
-    })
-  })
-
-  await Promise.allSettled(promises)
+    } catch (e) {
+      console.debug("[memory-enhanced] failed to read session messages:", e)
+    }
+  }
 
   let stored = 0
   if (allRecords.length > 0) {
@@ -148,79 +131,7 @@ export async function scanFromOpenCodeDB(client: any, projectPath: string, limit
     })
   }
 
-  if (workerErrors > 0) showToast(client, `${workerErrors} session(s) had errors`, "warning", 3000)
   return stored
 }
 
-export async function scanPastSessions(client: any, projectPath: string, limit = 99999): Promise<number> {
-  try {
-    const projRes = await client.project?.list?.()
-    const rawProjects = projRes?.data?.[200] ?? projRes?.data ?? []
-    const projects: any[] = Array.isArray(rawProjects) ? rawProjects : []
 
-    let allDirs: string[] = []
-    for (const p of projects) {
-      const dir = p?.worktree ?? ""
-      if (dir && !allDirs.includes(dir)) allDirs.push(dir)
-    }
-    if (allDirs.length === 0) allDirs.push("")
-
-    let stored = 0
-    let totalScanned = 0
-    for (const dir of allDirs) {
-      let page = 0
-      const pageSize = 50
-      let hasMore = true
-      const allSessions: any[] = []
-
-      while (hasMore && allSessions.length < limit) {
-        const listRes = await client.session?.list?.(dir ? { query: { directory: dir, offset: page * pageSize, limit: pageSize } } : { query: { offset: page * pageSize, limit: pageSize } })
-        const rawSessions = listRes?.data?.[200] ?? listRes?.data ?? []
-        const sessions: any[] = Array.isArray(rawSessions) ? rawSessions : []
-        if (sessions.length === 0) { hasMore = false; break }
-        const remaining = limit - allSessions.length
-        allSessions.push(...sessions.slice(0, remaining))
-        if (sessions.length < pageSize || allSessions.length >= limit) hasMore = false
-        page++
-      }
-
-      for (const sess of allSessions) {
-        const sid = sess.id ?? sess.sessionID ?? ""
-        if (!sid) continue
-
-        const already = getOne("SELECT id FROM scanned_sessions WHERE session_id = ?", [sid])
-        if (already) continue
-
-        let messages: any[] = []
-        try {
-          const msgRes = await client.session?.messages?.({ path: { id: sid } })
-          const rawMsgs = msgRes?.data?.[200] ?? msgRes?.data ?? []
-          messages = Array.isArray(rawMsgs) ? rawMsgs : []
-        } catch (e) { console.debug("[memory-enhanced] failed to fetch messages:", e) }
-
-        if (messages.length === 0) continue
-
-        const records = extractSessionMemories(messages, {
-          sid,
-          title: sess.title,
-          model: sess.model ?? sess.modelID,
-          agent: sess.agent ?? sess.mode,
-        }, dir || projectPath)
-
-        transaction(() => {
-          const storedNow = insertRecords(records, dir || projectPath)
-          stored += storedNow
-          execSingle(
-            "INSERT OR IGNORE INTO scanned_sessions (session_id, message_count, stored_count) VALUES (?, ?, ?)",
-            [sid, messages.length, storedNow]
-          )
-        })
-
-        totalScanned++
-        if (totalScanned % 10 === 0) showToast(client, `Scan (API): ${totalScanned} sessions`, "info", 1500)
-      }
-    }
-
-    return stored
-  } catch (e) { console.error("[memory-enhanced] scanPastSessions error:", e); return 0 }
-}

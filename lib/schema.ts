@@ -134,13 +134,11 @@ export const SCHEMA_DDL: string[] = [
 
 export const INDEX_DDL: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_${M}_importance ON "${M}"(importance)`,
-  `CREATE INDEX IF NOT EXISTS idx_${M}_scope ON "${M}"(scope)`,
   `CREATE INDEX IF NOT EXISTS idx_${M}_session ON "${M}"(session_id)`,
   `CREATE INDEX IF NOT EXISTS idx_${M}_relevance ON "${M}"(relevance_score)`,
   `CREATE INDEX IF NOT EXISTS idx_${E}_name ON "${E}"(name)`,
   `CREATE INDEX IF NOT EXISTS idx_${CA}_session ON "${CA}"(session_id)`,
   `CREATE INDEX IF NOT EXISTS idx_${LP}_type ON "${LP}"(pattern_type)`,
-  `CREATE INDEX IF NOT EXISTS idx_${M}_type ON "${M}"(type)`,
   `CREATE INDEX IF NOT EXISTS idx_${M}_timestamp ON "${M}"(timestamp)`,
   `CREATE INDEX IF NOT EXISTS idx_${M}_accessed ON "${M}"(last_accessed)`,
   `CREATE INDEX IF NOT EXISTS idx_${M}_composite_scope ON "${M}"(scope, importance, relevance_score)`,

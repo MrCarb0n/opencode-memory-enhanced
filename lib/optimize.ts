@@ -8,10 +8,6 @@ import { getConfig } from "./config"
 
 const YIELD_INTERVAL = 50
 
-function yieldToEventLoop(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 0))
-}
-
 interface OptimizeResult {
   staleRemoved: number
   duplicatesMerged: number
@@ -34,7 +30,7 @@ export async function runOptimize(
   if (isFull) {
     const projectMemories = getAll("SELECT id, content, type, importance FROM memories WHERE scope = 'project' ORDER BY id")
     for (let i = 0; i < projectMemories.length; i++) {
-      if (i > 0 && i % YIELD_INTERVAL === 0) await yieldToEventLoop()
+      if (i > 0 && i % YIELD_INTERVAL === 0) await new Promise((r) => setTimeout(r, 0))
       for (let j = i + 1; j < projectMemories.length; j++) {
         if (!sameBucket(projectMemories[i].content, projectMemories[j].content)) continue
         if (cosineSimilarity(projectMemories[i].content, projectMemories[j].content) > 0.85) {
@@ -52,7 +48,7 @@ export async function runOptimize(
       const status = embeddingStatus()
       if (status.loaded) {
         for (let idx = 0; idx < noEmbedding.length; idx++) {
-          if (idx > 0 && idx % YIELD_INTERVAL === 0) await yieldToEventLoop()
+          if (idx > 0 && idx % YIELD_INTERVAL === 0) await new Promise((r) => setTimeout(r, 0))
           const mem = noEmbedding[idx]
           const emb = await precomputeVector(mem.content as string)
           if (emb) {

@@ -1,12 +1,12 @@
 import type { Plugin, PluginInput } from "@opencode-ai/plugin"
-import { initDb, getDb, execSingle, getOne, getAll, runInsert, now, saveDb, scheduleSave, startAutoSave, stopAutoSave, initFts5, searchFts5 } from "./lib/db"
+import { initDb, getDb, execSingle, getOne, getAll, runInsert, now, saveDb, scheduleSave, stopAutoSave, initFts5, searchFts5 } from "./lib/db"
 import { autoRemember, applyMemoryDecay, hybridSearch, pendingEmbeds } from "./lib/memory"
 import { loadConfig, getConfig, saveConfig } from "./lib/config"
 import { showToast, appendPrompt, updateAgentsMd } from "./lib/helpers"
-import { scanPastSessions } from "./lib/scan"
+import { scanFromOpenCodeDB } from "./lib/scan"
 import { createTools } from "./lib/tools/index"
 import { ensureSchema } from "./lib/schema"
-import { preloadEmbeddings } from "./lib/embeddings"
+
 import { buildCuratedBlock } from "./lib/curated"
 import { detectEntityPatterns } from "./lib/entities"
 
@@ -30,9 +30,7 @@ export default (async ({ client, project, directory }: PluginInput) => {
 
     _dbReady = true
 
-    startAutoSave()
 
-    preloadEmbeddings()
   } catch (e) {
     console.error("[memory-enhanced] Init failed, running in degraded mode:", e)
     try { client.app.log({ body: { service: "memory-enhanced", level: "error", message: `Init failed: ${e}` } }) } catch (_) { }
@@ -81,7 +79,7 @@ export default (async ({ client, project, directory }: PluginInput) => {
             }
             if (cfg.scan_on_start) {
               const sessionsScanned = getOne("SELECT COUNT(*) as c FROM scanned_sessions")?.c ?? 0
-              track(scanPastSessions(client, projectPath, sessionsScanned === 0 ? 99999 : 3).catch(() => {}))
+              track(scanFromOpenCodeDB(client, projectPath, sessionsScanned === 0 ? 99999 : 3).catch(() => {}))
             }
             break
           }
@@ -234,28 +232,17 @@ export default (async ({ client, project, directory }: PluginInput) => {
     "config": async (input: any) => {
       try {
         const current = getConfig()
-        if (input.auto_remember !== undefined) current.auto_remember = input.auto_remember
-        if (input.decay_rate !== undefined) current.decay_rate = input.decay_rate
-        if (input.access_boost !== undefined) current.access_boost = input.access_boost
-        if (input.toast_enabled !== undefined) current.toast_enabled = input.toast_enabled
-        if (input.scan_on_start !== undefined) current.scan_on_start = input.scan_on_start
-        if (input.tracked_tools !== undefined) current.tracked_tools = input.tracked_tools
-        if (input.dont_save_patterns !== undefined) current.dont_save_patterns = input.dont_save_patterns
-        if (input.auto_remember_patterns !== undefined) current.auto_remember_patterns = input.auto_remember_patterns
-        if (input.noise_commands !== undefined) current.noise_commands = input.noise_commands
-        if (input.auto_allow_keywords !== undefined) current.auto_allow_keywords = input.auto_allow_keywords
-        if (input.auto_deny_keywords !== undefined) current.auto_deny_keywords = input.auto_deny_keywords
-        if (input.tech_stack !== undefined) current.tech_stack = input.tech_stack
-        if (input.tag_patterns !== undefined) current.tag_patterns = input.tag_patterns
-        if (input.memory_type_patterns !== undefined) current.memory_type_patterns = input.memory_type_patterns
-        if (input.importance_patterns !== undefined) current.importance_patterns = input.importance_patterns
-        if (input.graph_type_colors !== undefined) current.graph_type_colors = input.graph_type_colors
-        if (input.write_approval !== undefined) current.write_approval = input.write_approval
-        if (input.agent_note_limit !== undefined) current.agent_note_limit = input.agent_note_limit
-        if (input.user_profile_limit !== undefined) current.user_profile_limit = input.user_profile_limit
-        if (input.security_scan !== undefined) current.security_scan = input.security_scan
-        if (input.background_consolidate !== undefined) current.background_consolidate = input.background_consolidate
-        if (input.context_budget !== undefined) current.context_budget = input.context_budget
+        const keys = [
+          "auto_remember", "decay_rate", "access_boost", "toast_enabled", "scan_on_start",
+          "tracked_tools", "dont_save_patterns", "auto_remember_patterns", "noise_commands",
+          "auto_allow_keywords", "auto_deny_keywords", "tech_stack", "tag_patterns",
+          "memory_type_patterns", "importance_patterns", "graph_type_colors", "write_approval",
+          "agent_note_limit", "user_profile_limit", "security_scan", "background_consolidate",
+          "context_budget"
+        ] as const
+        for (const k of keys) {
+          if (input[k] !== undefined) (current as any)[k] = input[k]
+        }
         saveConfig(current)
       } catch (e) { console.error("[memory-enhanced] config error:", e) }
     },

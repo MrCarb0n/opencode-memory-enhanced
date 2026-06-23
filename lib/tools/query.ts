@@ -1,5 +1,5 @@
 import { tool } from "@opencode-ai/plugin"
-import { getOne, getAll, execSingle, now, saveDb, ftsQuery } from "../db"
+import { getOne, getAll, execSingle, now, saveDb, buildFtsQuery } from "../db"
 import { truncate } from "../utils"
 import { scoreMemories, hybridSearch } from "../memory"
 import { cleanupOrphanEntities } from "../entities"
@@ -40,7 +40,7 @@ export function createQueryTool(client: any, _projectPath: string) {
           } else {
             scored = await scoreMemories(query, getAll(
               `SELECT m.id, m.content, m.type, m.importance, m.relevance_score, m.tags, m.embedding FROM memories m JOIN memories_fts fts ON m.id = fts.rowid WHERE memories_fts MATCH ? AND m.scope = 'project' AND m.relevance_score >= 0.2 ORDER BY rank LIMIT ? OFFSET ?`,
-              [ftsQuery(query), limit, offset]
+              [buildFtsQuery(query), limit, offset]
             ), limit)
           }
           const entities = getAll(`SELECT e.name, e.type, e.description FROM entities e WHERE e.name LIKE ? LIMIT 8`, [`%${query}%`])
@@ -109,11 +109,11 @@ export function createQueryTool(client: any, _projectPath: string) {
           if (useFts) {
             total = getOne(
               `SELECT COUNT(*) as c FROM memories m JOIN memories_fts fts ON m.id = fts.rowid WHERE memories_fts MATCH ?${scopeFilter ? " AND m.scope = ?" : ""}${typeFilter ? " AND m.type = ?" : ""}`,
-              [ftsQuery(searchQuery), ...(scopeFilter ? [scopeFilter] : []), ...(typeFilter ? [typeFilter] : [])]
+              [buildFtsQuery(searchQuery), ...(scopeFilter ? [scopeFilter] : []), ...(typeFilter ? [typeFilter] : [])]
             )?.c ?? 0
             memories = getAll(
               `SELECT m.id, m.content, m.type, m.scope, m.importance, m.access_count FROM memories m JOIN memories_fts fts ON m.id = fts.rowid WHERE memories_fts MATCH ?${scopeFilter ? " AND m.scope = ?" : ""}${typeFilter ? " AND m.type = ?" : ""} ORDER BY rank LIMIT ? OFFSET ?`,
-              [ftsQuery(searchQuery), ...(scopeFilter ? [scopeFilter] : []), ...(typeFilter ? [typeFilter] : []), pageSize, offset]
+              [buildFtsQuery(searchQuery), ...(scopeFilter ? [scopeFilter] : []), ...(typeFilter ? [typeFilter] : []), pageSize, offset]
             )
           } else {
             total = getOne(`SELECT COUNT(*) as c FROM memories ${where}`, params)?.c ?? 0
@@ -183,7 +183,7 @@ export function createQueryTool(client: any, _projectPath: string) {
           const offset = (page - 1) * limit
           const ftsCount = (getOne(
             `SELECT COUNT(*) as c FROM memories m JOIN memories_fts fts ON m.id = fts.rowid WHERE memories_fts MATCH ? AND ${whereExtra}`,
-            [ftsQuery(query), ...params]
+            [buildFtsQuery(query), ...params]
           )?.c ?? 0) as number
           const hybridResults = await hybridSearch(query, limit + offset, whereExtra, params)
           total = Math.max(ftsCount, hybridResults.length)
@@ -191,13 +191,13 @@ export function createQueryTool(client: any, _projectPath: string) {
         } else {
           const totalRow = getOne(
             `SELECT COUNT(*) as c FROM memories m JOIN memories_fts fts ON m.id = fts.rowid WHERE memories_fts MATCH ? AND ${whereExtra}`,
-            [ftsQuery(query), ...params]
+            [buildFtsQuery(query), ...params]
           )
           total = totalRow?.c ?? 0
           const offset = (page - 1) * limit
           scored = await scoreMemories(query, getAll(
             `SELECT m.id, m.content, m.type, m.importance, m.relevance_score, m.access_count, m.tags, m.embedding FROM memories m JOIN memories_fts fts ON m.id = fts.rowid WHERE memories_fts MATCH ? AND ${whereExtra} ORDER BY rank LIMIT ? OFFSET ?`,
-            [ftsQuery(query), ...params, limit, offset]
+            [buildFtsQuery(query), ...params, limit, offset]
           ), limit)
         }
         for (const mem of scored) {
