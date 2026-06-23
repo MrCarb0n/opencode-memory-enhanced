@@ -1,11 +1,11 @@
 ---
 name: cluster-4
-description: "Skill for the Cluster_4 area of opencode-memory-enhanced. 12 symbols across 5 files."
+description: "Skill for the Cluster_4 area of opencode-memory-enhanced. 11 symbols across 5 files."
 ---
 
 # Cluster_4
 
-12 symbols | 5 files | Cohesion: 66%
+11 symbols | 5 files | Cohesion: 61%
 
 ## When to Use
 
@@ -20,15 +20,15 @@ description: "Skill for the Cluster_4 area of opencode-memory-enhanced. 12 symbo
 | `lib/types.ts` | parsePattern, shouldNotSave, detectMemoryType, isImportantMessage, extractImportance |
 | `lib/config.ts` | loadConfig, getConfig |
 | `lib/extractor.ts` | parseMessages, extractSessionMemories |
-| `memory-enhanced.ts` | tool.execute.after, permission.ask |
 | `lib/entities.ts` | generateAutoTags |
+| `memory-enhanced.ts` | tool.execute.after |
 
 ## Entry Points
 
 Start here when exploring this area:
 
-- **`loadConfig`** (Function) — `lib/config.ts:155`
-- **`getConfig`** (Function) — `lib/config.ts:170`
+- **`loadConfig`** (Function) — `lib/config.ts:131`
+- **`getConfig`** (Function) — `lib/config.ts:146`
 - **`generateAutoTags`** (Function) — `lib/entities.ts:56`
 - **`extractSessionMemories`** (Function) — `lib/extractor.ts:50`
 - **`parsePattern`** (Function) — `lib/types.ts:21`
@@ -37,8 +37,8 @@ Start here when exploring this area:
 
 | Symbol | Type | File | Line |
 |--------|------|------|------|
-| `loadConfig` | Function | `lib/config.ts` | 155 |
-| `getConfig` | Function | `lib/config.ts` | 170 |
+| `loadConfig` | Function | `lib/config.ts` | 131 |
+| `getConfig` | Function | `lib/config.ts` | 146 |
 | `generateAutoTags` | Function | `lib/entities.ts` | 56 |
 | `extractSessionMemories` | Function | `lib/extractor.ts` | 50 |
 | `parsePattern` | Function | `lib/types.ts` | 21 |
@@ -46,8 +46,7 @@ Start here when exploring this area:
 | `detectMemoryType` | Function | `lib/types.ts` | 35 |
 | `isImportantMessage` | Function | `lib/types.ts` | 43 |
 | `extractImportance` | Function | `lib/types.ts` | 49 |
-| `tool.execute.after` | Function | `memory-enhanced.ts` | 183 |
-| `permission.ask` | Function | `memory-enhanced.ts` | 195 |
+| `tool.execute.after` | Function | `memory-enhanced.ts` | 177 |
 | `parseMessages` | Function | `lib/extractor.ts` | 24 |
 
 ## Execution Flows
@@ -56,21 +55,20 @@ Start here when exploring this area:
 |------|------|-------|
 | `Chat.message → LoadConfig` | cross_community | 6 |
 | `Chat.message → ParsePattern` | cross_community | 5 |
-| `Execute → ParsePattern` | cross_community | 5 |
 | `RunOptimize → LoadConfig` | cross_community | 4 |
-| `Execute → ParseMessages` | cross_community | 4 |
 | `ExtractSessionMemories → LoadConfig` | intra_community | 4 |
 | `Event → LoadConfig` | cross_community | 3 |
 | `Execute → LoadConfig` | cross_community | 3 |
 | `Execute → LoadConfig` | cross_community | 3 |
-| `Tool.execute.after → LoadConfig` | intra_community | 3 |
+| `ExtractSessionMemories → ParsePattern` | intra_community | 3 |
+| `Experimental.session.compacting → LoadConfig` | cross_community | 3 |
+| `Experimental.chat.system.transform → LoadConfig` | cross_community | 3 |
 
 ## Connected Areas
 
 | Area | Connections |
 |------|-------------|
 | Tools | 2 calls |
-| Cluster_11 | 1 calls |
 
 ## How to Explore
 

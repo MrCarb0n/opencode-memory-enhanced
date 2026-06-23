@@ -171,7 +171,7 @@ export function createStoreTool(client: any, projectPath: string) {
         const autoTags = generateAutoTags(content)
         const manualTags = String(args.tags ?? "").split(",").filter(Boolean)
         const allTags = [...new Set([...autoTags, ...manualTags])].join(",")
-        const similar = getOne("SELECT id, content FROM memories WHERE content = ?", [content])
+        const similar = getOne<{ id: number; content: string }>("SELECT id, content FROM memories WHERE content = ?", [content])
         if (similar) {
           execSingle("UPDATE memories SET access_count = access_count + 1, last_accessed = ?, importance = MAX(importance, ?) WHERE id = ?", [now(), importance, similar.id])
           showToast(client, "Memory updated (merged)", "info")

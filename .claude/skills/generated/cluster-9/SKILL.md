@@ -1,74 +1,46 @@
 ---
 name: cluster-9
-description: "Skill for the Cluster_9 area of opencode-memory-enhanced. 9 symbols across 4 files."
+description: "Skill for the Cluster_9 area of opencode-memory-enhanced. 6 symbols across 2 files."
 ---
 
 # Cluster_9
 
-9 symbols | 4 files | Cohesion: 47%
+6 symbols | 2 files | Cohesion: 100%
 
 ## When to Use
 
 - Working with code in `lib/`
-- Understanding how saveDb, getDb, stopAutoSave work
+- Understanding how initDb, ensureSchema work
 - Modifying cluster_9-related functionality
 
 ## Key Files
 
 | File | Symbols |
 |------|---------|
-| `lib/db.ts` | saveDb, getDb, stopAutoSave |
-| `lib/optimize.ts` | yieldToEventLoop, runOptimize, applyMemoryDecay |
-| `lib/helpers.ts` | sizeBucketKey, sameBucket |
-| `memory-enhanced.ts` | dispose |
+| `lib/db.ts` | ensureDataDir, getDbPath, initDb, runMigrations, runPendingMigrations |
+| `lib/schema.ts` | ensureSchema |
 
 ## Entry Points
 
 Start here when exploring this area:
 
-- **`saveDb`** (Function) — `lib/db.ts:25`
-- **`getDb`** (Function) — `lib/db.ts:73`
-- **`stopAutoSave`** (Function) — `lib/db.ts:143`
-- **`sameBucket`** (Function) — `lib/helpers.ts:16`
-- **`runOptimize`** (Function) — `lib/optimize.ts:21`
+- **`initDb`** (Function) — `lib/db.ts:21`
+- **`ensureSchema`** (Function) — `lib/schema.ts:153`
 
 ## Key Symbols
 
 | Symbol | Type | File | Line |
 |--------|------|------|------|
-| `saveDb` | Function | `lib/db.ts` | 25 |
-| `getDb` | Function | `lib/db.ts` | 73 |
-| `stopAutoSave` | Function | `lib/db.ts` | 143 |
-| `sameBucket` | Function | `lib/helpers.ts` | 16 |
-| `runOptimize` | Function | `lib/optimize.ts` | 21 |
-| `applyMemoryDecay` | Function | `lib/optimize.ts` | 79 |
-| `dispose` | Function | `memory-enhanced.ts` | 266 |
-| `sizeBucketKey` | Function | `lib/helpers.ts` | 12 |
-| `yieldToEventLoop` | Function | `lib/optimize.ts` | 10 |
-
-## Execution Flows
-
-| Flow | Type | Steps |
-|------|------|-------|
-| `RunOptimize → LoadConfig` | cross_community | 4 |
-| `Execute → Now` | cross_community | 3 |
-| `Execute → Now` | cross_community | 3 |
-| `Execute → Now` | cross_community | 3 |
-| `RunOptimize → ExecSingle` | cross_community | 3 |
-| `Dispose → Now` | cross_community | 3 |
-
-## Connected Areas
-
-| Area | Connections |
-|------|-------------|
-| Tools | 5 calls |
-| Cluster_11 | 2 calls |
-| Cluster_15 | 1 calls |
-| Cluster_4 | 1 calls |
+| `initDb` | Function | `lib/db.ts` | 21 |
+| `ensureSchema` | Function | `lib/schema.ts` | 153 |
+| `ensureDataDir` | Function | `lib/db.ts` | 11 |
+| `getDbPath` | Function | `lib/db.ts` | 17 |
+| `runMigrations` | Function | `lib/db.ts` | 40 |
+| `runPendingMigrations` | Function | `lib/db.ts` | 53 |
 
 ## How to Explore
 
-1. `context({name: "saveDb"})` — see callers and callees
+1. `context({name: "initDb"})` — see callers and callees
 2. `query({search_query: "cluster_9"})` — find related execution flows
 3. Read key files listed above for implementation details
 4. `explain({target: "<file or symbol>"})` — persisted taint findings (source→sink data flows), when indexed with `--pdg`

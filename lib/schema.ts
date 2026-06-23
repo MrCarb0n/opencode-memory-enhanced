@@ -1,4 +1,3 @@
-import type { Database } from "fts5-sql-bundle"
 import { Tables } from "./constants"
 
 const M = Tables.memories
@@ -151,7 +150,7 @@ export const INDEX_DDL: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_${PK}_name ON "${PK}"(name)`,
 ]
 
-export function ensureSchema(db: Database): void {
-  for (const ddl of SCHEMA_DDL) db.run(ddl)
-  for (const idx of INDEX_DDL) db.run(idx)
+export function ensureSchema(db: any): void {
+  for (const ddl of SCHEMA_DDL) db.exec(ddl)
+  for (const idx of INDEX_DDL) db.exec(idx)
 }

@@ -64,7 +64,7 @@ export function createQueryTool(client: any, _projectPath: string) {
           const detailId = (args.detail as number) || 0
 
           if (deleteId > 0) {
-            const mem = getOne("SELECT id, content FROM memories WHERE id = ?", [deleteId])
+            const mem = getOne<{ id: number; content: string }>("SELECT id, content FROM memories WHERE id = ?", [deleteId])
             if (!mem) { showToast(client, "Memory not found", "error"); return "(not found)" }
             execSingle("DELETE FROM memories WHERE id = ?", [deleteId])
             execSingle("DELETE FROM concept_tags WHERE memory_id = ?", [deleteId])
@@ -75,9 +75,9 @@ export function createQueryTool(client: any, _projectPath: string) {
           }
 
           if (detailId > 0) {
-            const mem = getOne("SELECT id, content, type, scope, importance, relevance_score, access_count, tags, keywords, timestamp, session_id FROM memories WHERE id = ?", [detailId])
+            const mem = getOne<{ id: number; content: string; type: string; scope: string; importance: number; relevance_score: number; access_count: number; tags: string; keywords: string; timestamp: string; session_id: string }>("SELECT id, content, type, scope, importance, relevance_score, access_count, tags, keywords, timestamp, session_id FROM memories WHERE id = ?", [detailId])
             if (!mem) { showToast(client, "Memory not found", "error"); return "(not found)" }
-            const entities = getAll("SELECT e.name, e.type FROM entities e JOIN concept_tags ct ON e.id = ct.entity_id WHERE ct.memory_id = ?", [detailId])
+            const entities = getAll<{ name: string; type: string }>("SELECT e.name, e.type FROM entities e JOIN concept_tags ct ON e.id = ct.entity_id WHERE ct.memory_id = ?", [detailId])
             execSingle("UPDATE memories SET access_count = access_count + 1, last_accessed = ? WHERE id = ?", [now(), detailId])
             const lines = [
               `## Memory #${mem.id}`,
@@ -107,17 +107,17 @@ export function createQueryTool(client: any, _projectPath: string) {
           let memories: any[]
           let total: number
           if (useFts) {
-            total = getOne(
+            total = (getOne<{ c: number }>(
               `SELECT COUNT(*) as c FROM memories m JOIN memories_fts fts ON m.id = fts.rowid WHERE memories_fts MATCH ?${scopeFilter ? " AND m.scope = ?" : ""}${typeFilter ? " AND m.type = ?" : ""}`,
               [buildFtsQuery(searchQuery), ...(scopeFilter ? [scopeFilter] : []), ...(typeFilter ? [typeFilter] : [])]
-            )?.c ?? 0
-            memories = getAll(
+            )?.c) ?? 0
+            memories = getAll<{ id: number; content: string; type: string; scope: string; importance: number; access_count: number }>(
               `SELECT m.id, m.content, m.type, m.scope, m.importance, m.access_count FROM memories m JOIN memories_fts fts ON m.id = fts.rowid WHERE memories_fts MATCH ?${scopeFilter ? " AND m.scope = ?" : ""}${typeFilter ? " AND m.type = ?" : ""} ORDER BY rank LIMIT ? OFFSET ?`,
               [buildFtsQuery(searchQuery), ...(scopeFilter ? [scopeFilter] : []), ...(typeFilter ? [typeFilter] : []), pageSize, offset]
             )
           } else {
-            total = getOne(`SELECT COUNT(*) as c FROM memories ${where}`, params)?.c ?? 0
-            memories = getAll(`SELECT id, content, type, scope, importance, access_count FROM memories ${where} ORDER BY importance DESC, timestamp DESC LIMIT ? OFFSET ?`, [...params, pageSize, offset])
+            total = (getOne<{ c: number }>(`SELECT COUNT(*) as c FROM memories ${where}`, params)?.c) ?? 0
+            memories = getAll<{ id: number; content: string; type: string; scope: string; importance: number; access_count: number }>(`SELECT id, content, type, scope, importance, access_count FROM memories ${where} ORDER BY importance DESC, timestamp DESC LIMIT ? OFFSET ?`, [...params, pageSize, offset])
           }
           const totalPages = Math.max(1, Math.ceil(total / pageSize))
           if (memories.length === 0) {
@@ -151,16 +151,16 @@ export function createQueryTool(client: any, _projectPath: string) {
           const lines: string[] = ["### Entities"]
           for (const entity of entities) {
             lines.push(`  - ${entity.name} (${entity.type}) — ${entity.description || "no description"} [${entity.mention_count} mentions]`)
-            if (includeRelationships) {
-              const rels = getAll(`SELECT COALESCE(s.name, '(unknown)') as source, r.relationship_type, COALESCE(t.name, '(unknown)') as target, r.confidence FROM relationships r LEFT JOIN entities s ON r.source_entity_id = s.id LEFT JOIN entities t ON r.target_entity_id = t.id WHERE r.source_entity_id = ? OR r.target_entity_id = ? ORDER BY r.confidence DESC LIMIT 10`, [entity.id, entity.id])
+if (includeRelationships) {
+              const rels = getAll<{ source: string; relationship_type: string; target: string; confidence: number }>(`SELECT COALESCE(s.name, '(unknown)') as source, r.relationship_type, COALESCE(t.name, '(unknown)') as target, r.confidence FROM relationships r LEFT JOIN entities s ON r.source_entity_id = s.id LEFT JOIN entities t ON r.target_entity_id = t.id WHERE r.source_entity_id = ? OR r.target_entity_id = ? ORDER BY r.confidence DESC LIMIT 10`, [entity.id, entity.id])
               for (const rel of rels) lines.push(`    ${rel.source} --[${rel.relationship_type}|conf:${rel.confidence.toFixed(2)}]--> ${rel.target}`)
             }
-          }
-          const linkedMemories = getAll(`SELECT m.content, m.type, m.importance FROM memories m JOIN concept_tags ct ON m.id = ct.memory_id WHERE ct.entity_id = ? ORDER BY m.importance DESC LIMIT 5`, [entities[0].id])
-          if (linkedMemories.length > 0) {
-            lines.push("\n### Linked Memories")
-            for (const mem of linkedMemories) lines.push(`  - [${mem.type}|i:${mem.importance}] ${truncate(mem.content, 100)}`)
-          }
+            }
+            const linkedMemories = getAll<{ content: string; type: string; importance: number }>(`SELECT m.content, m.type, m.importance FROM memories m JOIN concept_tags ct ON m.id = ct.memory_id WHERE ct.entity_id = ? ORDER BY m.importance DESC LIMIT 5`, [entities[0].id])
+            if (linkedMemories.length > 0) {
+              lines.push("\n### Linked Memories")
+              for (const mem of linkedMemories) lines.push(`  - [${mem.type}|i:${mem.importance}] ${truncate(mem.content, 100)}`)
+            }
           return lines.join("\n")
         }
 
@@ -189,7 +189,7 @@ export function createQueryTool(client: any, _projectPath: string) {
           total = Math.max(ftsCount, hybridResults.length)
           scored = hybridResults.slice(offset, offset + limit).map((r) => ({ ...r, similarity: r.score }))
         } else {
-          const totalRow = getOne(
+          const totalRow = getOne<{ c: number }>(
             `SELECT COUNT(*) as c FROM memories m JOIN memories_fts fts ON m.id = fts.rowid WHERE memories_fts MATCH ? AND ${whereExtra}`,
             [buildFtsQuery(query), ...params]
           )

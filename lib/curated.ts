@@ -8,11 +8,6 @@ export function getCuratedEntries(store: CuratedStore): { id: number; content: s
   return rows.map((r) => ({ id: r.id as number, content: r.content as string }))
 }
 
-export function getCuratedContent(store: CuratedStore): string {
-  const entries = getCuratedEntries(store)
-  return entries.map((e) => e.content).join("\n§\n")
-}
-
 export function getCuratedUsage(store: CuratedStore): { used: number; limit: number; pct: number } {
   const entries = getCuratedEntries(store)
   const used = entries.reduce((sum, e) => sum + e.content.length + 3, 0) // +3 for "§\n" delimiters

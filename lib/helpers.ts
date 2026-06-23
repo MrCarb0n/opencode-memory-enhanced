@@ -6,10 +6,6 @@ export function showToast(client: any, message: string, variant: "info" | "succe
   try { client.tui?.showToast?.({ body: { title: "Memory", message, variant, duration } }) } catch (e) { console.debug("[memory-enhanced] showToast failed:", e) }
 }
 
-export function appendPrompt(client: any, text: string) {
-  try { client.tui?.appendPrompt?.({ body: { text } }) } catch (e) { console.debug("[memory-enhanced] appendPrompt failed:", e) }
-}
-
 function sizeBucketKey(content: string): number {
   return Math.floor(content.length / 20) * 20
 }

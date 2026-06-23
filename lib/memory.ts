@@ -88,10 +88,10 @@ export async function hybridSearch(
   ])
 
   // Merge via RRF
-  const rrfScores = new Map<number, { ftsRank: number; vecRank: number; row: any }>()
+  const rrfScores = new Map<number, { ftsRank: number; vecRank: number; row: SearchResult }>()
 
   for (let i = 0; i < ftsResults.length; i++) {
-    const r = ftsResults[i]
+    const r = ftsResults[i] as unknown as SearchResult
     rrfScores.set(r.id, { ftsRank: i + 1, vecRank: Infinity, row: r })
   }
 

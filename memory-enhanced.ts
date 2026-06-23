@@ -2,7 +2,7 @@ import type { Plugin, PluginInput } from "@opencode-ai/plugin"
 import { initDb, getDb, execSingle, getOne, getAll, runInsert, now, saveDb, scheduleSave, stopAutoSave, initFts5, searchFts5 } from "./lib/db"
 import { autoRemember, applyMemoryDecay, hybridSearch, pendingEmbeds } from "./lib/memory"
 import { loadConfig, getConfig, saveConfig } from "./lib/config"
-import { showToast, appendPrompt, updateAgentsMd } from "./lib/helpers"
+import { showToast, updateAgentsMd } from "./lib/helpers"
 import { scanFromOpenCodeDB } from "./lib/scan"
 import { createTools } from "./lib/tools/index"
 import { ensureSchema } from "./lib/schema"
@@ -71,14 +71,14 @@ export default (async ({ client, project, directory }: PluginInput) => {
           case "session.created": {
             captureFrozenSnapshot()
             client.app.log({ body: { service: "memory-enhanced", level: "info", message: `Session started: ${event.properties.info.id}` } })
-            const count = getOne("SELECT COUNT(*) as c FROM memories")?.c ?? 0
+            const count = (getOne<{ c: number }>("SELECT COUNT(*) as c FROM memories")?.c) ?? 0
             const cfg = getConfig()
             if (cfg.toast_enabled && count > 0) showToast(client, `${count} memories · auto`, "info")
             if (cfg.auto_remember) {
               updateAgentsMd()
             }
             if (cfg.scan_on_start) {
-              const sessionsScanned = getOne("SELECT COUNT(*) as c FROM scanned_sessions")?.c ?? 0
+              const sessionsScanned = (getOne<{ c: number }>("SELECT COUNT(*) as c FROM scanned_sessions")?.c) ?? 0
               track(scanFromOpenCodeDB(client, projectPath, sessionsScanned === 0 ? 99999 : 3).catch(() => {}))
             }
             break
@@ -141,12 +141,12 @@ export default (async ({ client, project, directory }: PluginInput) => {
       try {
         captureFrozenSnapshot()
         let budget = getConfig().context_budget
-        const memories = getAll("SELECT content, type, importance FROM memories WHERE scope = 'project' AND importance >= 5 ORDER BY importance DESC, last_accessed DESC LIMIT 8")
+        const memories = getAll<{ content: string; type: string; importance: number }>("SELECT content, type, importance FROM memories WHERE scope = 'project' AND importance >= 5 ORDER BY importance DESC, last_accessed DESC LIMIT 8")
         if (memories.length > 0) {
           const block = `\n# Persistent Memories\n\n${memories.map((r) => `[${r.type}|i:${r.importance}] ${r.content.trim().substring(0, 120)}`).join("\n")}\n`
           if (block.length <= budget) { output.context.push(block); budget -= block.length }
         }
-        const ents = getAll("SELECT name, type, description FROM entities WHERE mention_count >= 2 ORDER BY mention_count DESC LIMIT 10")
+        const ents = getAll<{ name: string; type: string; description: string | null }>("SELECT name, type, description FROM entities WHERE mention_count >= 2 ORDER BY mention_count DESC LIMIT 10")
         if (ents.length > 0) {
           const block = `\n# Known Concepts\n${ents.map((r) => `  - ${r.name} (${r.type}): ${(r.description ?? "no description").substring(0, 100)}`).join("\n")}\n`
           if (block.length <= budget) { output.context.push(block); budget -= block.length }
@@ -163,7 +163,7 @@ export default (async ({ client, project, directory }: PluginInput) => {
           ? (output.args.command.match(/\b\w{4,}\b/g) || []).slice(0, 5).join(" ")
           : (output?.args?.filePath ?? output?.args?.pattern ?? "")
         if (query && query.length > 2) {
-          const results = searchFts5(query, 1, "m.scope = 'project' AND m.importance >= 5")
+          const results = searchFts5(query, 1, "m.scope = 'project' AND m.importance >= 5") as Array<{ content: string }>
           if (results.length > 0) {
             const ctx = results[0].content.substring(0, toolName === "bash" ? 60 : 120)
             client.app.log({ body: { service: "memory-enhanced", level: "debug", message: `Context for ${toolName}: ${ctx}` } })

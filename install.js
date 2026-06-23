@@ -10,7 +10,7 @@ const PKG = JSON.parse(readFileSync(join(SELF_DIR, "package.json"), "utf8"))
 const VERSION = PKG.version || "0.0.0"
 const NAME = "memory-enhanced"
 const MIN_NODE = 18
-const REQUIRED = Object.keys(PKG.dependencies || {}).filter(d => d.startsWith("@opencode-ai/") || d === "fts5-sql-bundle")
+const REQUIRED = Object.keys(PKG.dependencies || {}).filter(d => d.startsWith("@opencode-ai/"))
 const LIB_FILES = readdirSync(join(SELF_DIR, "lib")).filter(f => f.endsWith(".ts")).sort()
 const TOOLS_FILES = existsSync(join(SELF_DIR, "lib", "tools")) ? readdirSync(join(SELF_DIR, "lib", "tools")).filter(f => f.endsWith(".ts")).sort() : []
 
@@ -100,7 +100,7 @@ if (!pkg.dependencies) pkg.dependencies = {}
 const sourceDeps = PKG.dependencies || {}
 // Remove deps no longer in source (except user-added non-plugin deps)
 for (const name of Object.keys(pkg.dependencies)) {
-  if (name.startsWith("@opencode-ai/") || name === "fts5-sql-bundle" || name in sourceDeps) {
+  if (name.startsWith("@opencode-ai/") || name in sourceDeps) {
     if (!(name in sourceDeps)) delete pkg.dependencies[name]
   }
 }
@@ -141,7 +141,6 @@ const toolsIndex = existsSync(join(configDir(), "plugins", "lib", "tools", "inde
 if (!toolsSingle && !toolsIndex) errors.push("lib/tools.ts or lib/tools/index.ts")
 if (!existsSync(join(configDir(), "skills", NAME, "SKILL.md"))) errors.push("SKILL.md")
 if (!existsSync(join(configDir(), "node_modules", "@opencode-ai", "plugin"))) errors.push("@opencode-ai/plugin")
-if (!existsSync(join(configDir(), "node_modules", "fts5-sql-bundle"))) errors.push("fts5-sql-bundle")
 
 if (errors.length) {
   console.error(`\nIssues: ${errors.join(", ")}`)

@@ -6,6 +6,7 @@ import { existsSync } from "fs"
 import { homedir } from "os"
 import { showToast } from "./helpers"
 import { IS_WIN } from "./constants"
+declare var Bun: any | undefined
 
 function getOpenCodeDBPath(): string {
   const override = process.env.OPENCODE_DB_PATH
@@ -29,6 +30,7 @@ async function queryOpenCodeDB(sql: string, params: any[] = []): Promise<any[]> 
   try {
     let Database: any
     if (typeof Bun !== "undefined") {
+      // @ts-expect-error runtime-only
       const mod = await import("bun:sqlite")
       Database = mod.Database
     } else {

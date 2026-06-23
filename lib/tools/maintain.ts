@@ -22,7 +22,7 @@ export function createMaintainTool(client: any, projectPath: string) {
         if (mode === "dedup") {
           const threshold = (args.threshold as number) || 0.8
           const dryRun = (args.dryRun as boolean) !== false
-          const projectMemories = getAll("SELECT id, content, type, importance, access_count FROM memories WHERE scope = 'project' ORDER BY id")
+          const projectMemories = getAll<{ id: number; content: string; type: string; importance: number; access_count: number }>("SELECT id, content, type, importance, access_count FROM memories WHERE scope = 'project' ORDER BY id")
           let mergeCount = 0
           const merges: string[] = []
           const dedupLoop = () => {
@@ -50,7 +50,7 @@ export function createMaintainTool(client: any, projectPath: string) {
 
         if (mode === "conflicts") {
           const conflicts: string[] = []
-          const feedbacks = getAll("SELECT id, content, importance FROM memories WHERE type = 'feedback' AND scope = 'project' ORDER BY importance DESC")
+          const feedbacks = getAll<{ id: number; content: string; importance: number }>("SELECT id, content, importance FROM memories WHERE type = 'feedback' AND scope = 'project' ORDER BY importance DESC")
           for (let i = 0; i < feedbacks.length; i++) {
             for (let j = i + 1; j < feedbacks.length; j++) {
               if (!sameBucket(feedbacks[i].content, feedbacks[j].content)) continue

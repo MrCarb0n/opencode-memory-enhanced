@@ -23,8 +23,8 @@ export function createExportTool(client: any, _projectPath: string) {
         const minMentions = (args.minMentions as number) || 1
 
         if (mode === "svg" || mode === "dot") {
-          const entities = getAll("SELECT id, name, type, description, mention_count FROM entities WHERE mention_count >= ? ORDER BY mention_count DESC LIMIT 50", [minMentions])
-          const rels = getAll("SELECT s.name as src, r.relationship_type as rel, t.name as tgt, r.confidence FROM relationships r JOIN entities s ON r.source_entity_id = s.id JOIN entities t ON r.target_entity_id = t.id WHERE r.confidence >= 0.3")
+          const entities = getAll<{ id: number; name: string; type: string; description: string | null; mention_count: number }>("SELECT id, name, type, description, mention_count FROM entities WHERE mention_count >= ? ORDER BY mention_count DESC LIMIT 50", [minMentions])
+          const rels = getAll<{ src: string; rel: string; tgt: string; confidence: number }>("SELECT s.name as src, r.relationship_type as rel, t.name as tgt, r.confidence FROM relationships r JOIN entities s ON r.source_entity_id = s.id JOIN entities t ON r.target_entity_id = t.id WHERE r.confidence >= 0.3")
 
           if (mode === "svg") {
             if (entities.length === 0) return "(no entities to graph)"
@@ -71,9 +71,9 @@ export function createExportTool(client: any, _projectPath: string) {
 
         if (mode === "md" || mode === "markdown") {
           const scopeParam = scope !== "all" ? scope : null
-          const memories = scopeParam
-            ? getAll("SELECT * FROM memories WHERE scope = ? ORDER BY timestamp", [scopeParam])
-            : getAll("SELECT * FROM memories ORDER BY timestamp")
+const memories = scopeParam
+          ? getAll<{ id: number; content: string; type: string; scope: string; importance: number; relevance_score: number; access_count: number; tags: string; keywords: string; timestamp: string; project_path: string }>("SELECT * FROM memories WHERE scope = ? ORDER BY timestamp", [scopeParam])
+          : getAll<{ id: number; content: string; type: string; scope: string; importance: number; relevance_score: number; access_count: number; tags: string; keywords: string; timestamp: string; project_path: string }>("SELECT * FROM memories ORDER BY timestamp")
           const date = new Date().toISOString().slice(0, 10)
           const exportDir = Paths.dataRoot()
           const lines: string[] = [`# Memory Export (${date})`, `Scope: ${scope} | Total: ${memories.length} memories`, ""]
@@ -99,11 +99,11 @@ export function createExportTool(client: any, _projectPath: string) {
 
         const scopeParam = scope !== "all" ? scope : null
         const memories = scopeParam
-          ? getAll("SELECT * FROM memories WHERE scope = ? ORDER BY timestamp", [scopeParam])
-          : getAll("SELECT * FROM memories ORDER BY timestamp")
-        const entities = getAll("SELECT name, type, description, mention_count FROM entities ORDER BY mention_count DESC")
-        const rels = getAll(`SELECT COALESCE(s.name, '?') as source, r.relationship_type, COALESCE(t.name, '?') as target, r.confidence FROM relationships r LEFT JOIN entities s ON r.source_entity_id = s.id LEFT JOIN entities t ON r.target_entity_id = t.id`)
-        const patterns = getAll("SELECT pattern_text, pattern_type, confidence, occurrences FROM learning_patterns ORDER BY occurrences DESC")
+          ? getAll<{ id: number; content: string; type: string; scope: string; importance: number; relevance_score: number; access_count: number; tags: string; keywords: string; timestamp: string; project_path: string }>("SELECT * FROM memories WHERE scope = ? ORDER BY timestamp", [scopeParam])
+          : getAll<{ id: number; content: string; type: string; scope: string; importance: number; relevance_score: number; access_count: number; tags: string; keywords: string; timestamp: string; project_path: string }>("SELECT * FROM memories ORDER BY timestamp")
+        const entities = getAll<{ name: string; type: string; description: string | null; mention_count: number }>("SELECT name, type, description, mention_count FROM entities ORDER BY mention_count DESC")
+        const rels = getAll<{ source: string; relationship_type: string; target: string; confidence: number }>(`SELECT COALESCE(s.name, '?') as source, r.relationship_type, COALESCE(t.name, '?') as target, r.confidence FROM relationships r LEFT JOIN entities s ON r.source_entity_id = s.id LEFT JOIN entities t ON r.target_entity_id = t.id`)
+        const patterns = getAll<{ pattern_text: string; pattern_type: string; confidence: number; occurrences: number }>("SELECT pattern_text, pattern_type, confidence, occurrences FROM learning_patterns ORDER BY occurrences DESC")
         const data = {
           exported_at: now(),
           memories: memories.map((r) => ({

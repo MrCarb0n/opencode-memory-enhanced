@@ -7,7 +7,7 @@
     "noEmit": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "types": ["node", "bun"]
+    "types": ["node"]
   },
   "include": ["memory-enhanced.ts", "lib/**/*.ts"]
 }

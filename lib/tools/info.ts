@@ -75,9 +75,9 @@ export function createInfoTool(client: any, _projectPath: string) {
         if (mode === "timeline") {
           const days = Math.max(1, Math.min(365, (args.days as number) || 7))
           const suffix = `-${days} days`
-          const daily = getAll(`SELECT DATE(timestamp) as day, COUNT(*) as count, AVG(importance) as avg_imp FROM memories WHERE timestamp >= datetime('now', ?) GROUP BY DATE(timestamp) ORDER BY day DESC`, [suffix])
-          const byType = getAll(`SELECT type, COUNT(*) as count FROM memories WHERE timestamp >= datetime('now', ?) GROUP BY type ORDER BY count DESC`, [suffix])
-          const topActive = getAll(`SELECT content, type, access_count, last_accessed FROM memories WHERE last_accessed > datetime('now', ?) ORDER BY access_count DESC LIMIT 5`, [suffix])
+          const daily = getAll<{ day: string; count: number; avg_imp: number }>(`SELECT DATE(timestamp) as day, COUNT(*) as count, AVG(importance) as avg_imp FROM memories WHERE timestamp >= datetime('now', ?) GROUP BY DATE(timestamp) ORDER BY day DESC`, [suffix])
+          const byType = getAll<{ type: string; count: number }>(`SELECT type, COUNT(*) as count FROM memories WHERE timestamp >= datetime('now', ?) GROUP BY type ORDER BY count DESC`, [suffix])
+          const topActive = getAll<{ content: string; type: string; access_count: number; last_accessed: string }>(`SELECT content, type, access_count, last_accessed FROM memories WHERE last_accessed > datetime('now', ?) ORDER BY access_count DESC LIMIT 5`, [suffix])
           const parts: string[] = [`Timeline (last ${days} days):`]
           if (daily.length > 0) {
             parts.push("\nDaily activity:")
@@ -97,7 +97,7 @@ export function createInfoTool(client: any, _projectPath: string) {
         }
 
         const healthReport = (args.health as boolean) || false
-        const count = (sql: string) => getOne(sql)?.c ?? 0
+        const count = (sql: string) => (getOne<{ c: number }>(sql)?.c) ?? 0
 
         if (!healthReport) {
           const total = count("SELECT COUNT(*) as c FROM memories")
@@ -121,7 +121,7 @@ export function createInfoTool(client: any, _projectPath: string) {
         const neverAccessed = count("SELECT COUNT(*) as c FROM memories WHERE access_count = 0 AND scope = 'project'")
         const totalEntities = count("SELECT COUNT(*) as c FROM entities")
         const weakEntities = count("SELECT COUNT(*) as c FROM entities WHERE mention_count = 1")
-        const avgScoreVal = getOne("SELECT AVG(relevance_score) as avg FROM memories WHERE scope = 'project'")?.avg ?? 0
+        const avgScoreVal = (getOne<{ avg: number }>("SELECT AVG(relevance_score) as avg FROM memories WHERE scope = 'project'")?.avg) ?? 0
         const healthScore = Math.round(Math.max(0, Math.min(100,
           100 - (totalProject > 0 ? (staleCount / totalProject) * 30 : 0)
           - (totalProject > 0 ? (neverAccessed / totalProject) * 20 : 0)

@@ -157,7 +157,7 @@ export function createCuratedTool(client: any, _projectPath: string) {
           return JSON.stringify({ success: true })
         }
 
-        const pending = getAll(`SELECT id, action, store, old_text, content, created_at FROM pending_memories WHERE status = 'pending' ORDER BY created_at`)
+        const pending = getAll<{ id: number; action: string; store: string; old_text: string; content: string; created_at: string }>(`SELECT id, action, store, old_text, content, created_at FROM pending_memories WHERE status = 'pending' ORDER BY created_at`)
         const entries = store ? getCuratedEntries(store as "agent_note" | "user_profile") : []
         if (pending.length === 0 && entries.length === 0) {
           showToast(client, "No curated entries or pending writes", "info")

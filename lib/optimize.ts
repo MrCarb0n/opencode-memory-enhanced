@@ -28,7 +28,7 @@ export async function runOptimize(
   let patternsDetected = 0
 
   if (isFull) {
-    const projectMemories = getAll("SELECT id, content, type, importance FROM memories WHERE scope = 'project' ORDER BY id")
+    const projectMemories = getAll<{ id: number; content: string; type: string; importance: number }>("SELECT id, content, type, importance FROM memories WHERE scope = 'project' ORDER BY id")
     for (let i = 0; i < projectMemories.length; i++) {
       if (i > 0 && i % YIELD_INTERVAL === 0) await new Promise((r) => setTimeout(r, 0))
       for (let j = i + 1; j < projectMemories.length; j++) {
@@ -43,14 +43,14 @@ export async function runOptimize(
 
     if (duplicatesMerged > 0 && onMessage) onMessage(`Merged ${duplicatesMerged} duplicates`)
 
-    const noEmbedding = getAll("SELECT id, content FROM memories WHERE (embedding IS NULL OR embedding = '') AND scope = 'project' LIMIT 2000")
+    const noEmbedding = getAll<{ id: number; content: string }>("SELECT id, content FROM memories WHERE (embedding IS NULL OR embedding = '') AND scope = 'project' LIMIT 2000")
     if (noEmbedding.length > 0) {
       const status = embeddingStatus()
       if (status.loaded) {
         for (let idx = 0; idx < noEmbedding.length; idx++) {
           if (idx > 0 && idx % YIELD_INTERVAL === 0) await new Promise((r) => setTimeout(r, 0))
           const mem = noEmbedding[idx]
-          const emb = await precomputeVector(mem.content as string)
+          const emb = await precomputeVector(mem.content)
           if (emb) {
             execSingle("UPDATE memories SET embedding = ? WHERE id = ?", [emb, mem.id])
             embeddingsBackfilled++
@@ -63,7 +63,7 @@ export async function runOptimize(
     patternsDetected = detectEntityPatterns(projectPath)
     if (patternsDetected > 0 && onMessage) onMessage(`Detected ${patternsDetected} entity patterns`)
 
-    getDb().run("VACUUM")
+    getDb().exec("VACUUM")
   }
 
   execSingle("DELETE FROM conversation_arcs WHERE message_count < 2 AND start_time < datetime('now', '-30 days')")
