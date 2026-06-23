@@ -4,13 +4,10 @@ current_context.json
 node_modules/
 *.corrupt.*
 
-# GitNexus knowledge graph index (internal, regenerated per-machine)
+# GitNexus knowledge graph index
 .gitnexus/
 
-# Local memory database
-.open-mem/
-
-# Stale agent instructions (removed from history)
+# Stale agent instructions
 CLAUDE.md
 
 # Generated/stale artifacts

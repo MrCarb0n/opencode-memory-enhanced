@@ -22,7 +22,7 @@ Use for persistent local memory management — storing, recalling, injecting, le
 | `memory-curated` | Persistent agent/user notes with approval |
 | `memory-maintain` | Optimize, consolidate, prune, deduplicate |
 | `memory-export` | Export knowledge graph or memories as JSON |
-| `memory-scan` | Re-scan past sessions into memory |
+| `memory-scan` | Re-scan past sessions into memory (source=auto/db/api) |
 
 ## Memory types
 

@@ -14,17 +14,17 @@ Advanced autonomous memory plugin for [OpenCode](https://opencode.ai). Persisten
 - **Memory Decay** — configurable relevance decay and access boost so stale memories fade and active ones stay fresh
 - **Automatic Entity Consolidation** — background entity pattern detection, relationship mining, and orphan cleanup
 - **Toast Notifications** — non-intrusive in-app notifications for memory count, search matches, and system events
-- **All-Local** — SQLite (via sql.js) + local ONNX-session embeddings; zero data leaves your machine
+- **All-Local** — SQLite via better-sqlite3 (native, large-DB safe) + local ONNX-session embeddings; zero data leaves your machine
 
 ## Installation
 
 ```bash
-npx opencode-memory-enhanced
-# or
-npm install @mrcarb0n/opencode-memory-enhanced
+git clone https://github.com/MrCarb0n/opencode-memory-enhanced
+cd opencode-memory-enhanced
+npm install
 ```
 
-The plugin auto-installs to `~/.config/opencode/plugins/` and is loaded on OpenCode startup.
+The `preinstall` hook copies plugin files to `~/.config/opencode/plugins/` and installs dependencies. Restart OpenCode to load.
 
 ## Quick Start
 
@@ -49,11 +49,11 @@ Once installed, the plugin works silently:
 | `memory-curated` | Persistent agent_note/user_profile with write-approval workflow |
 | `memory-maintain` | Optimize, consolidate, prune stale memories, deduplicate, and health check |
 | `memory-export` | Export memories (JSON) and knowledge graph (SVG/DOT/JSON) with entity expansion |
-| `memory-scan` | Scan past sessions into memories with dry-run mode |
+| `memory-scan` | Scan past sessions into memories (DB direct or API fallback) |
 
 ## Configuration
 
-Config stored at `~/.opencode/memory-config.json` (or `%APPDATA%/.opencode/memory-config.json` on Windows). View/edit via `memory-info {mode: config}`.
+Config stored at `~/.config/opencode/memory-config.json`. View/edit via `memory-info {mode: config}`.
 
 Key settings:
 
@@ -62,6 +62,7 @@ Key settings:
 | `auto_remember` | `true` | Auto-capture important conversation context |
 | `decay_rate` | `0.01` | Per-day relevance decay (0-1) |
 | `access_boost` | `0.05` | Relevance boost on access (0-1) |
+| `context_budget` | `2000` | Max token budget for injected context window |
 | `toast_enabled` | `true` | Show in-app notifications |
 | `scan_on_start` | `true` | Scan past sessions on startup |
 | `enable_vectors` | `true` | Enable neural embeddings |
@@ -70,8 +71,9 @@ Key settings:
 
 ## Database
 
-- **Location:** `~/.opencode/memory-enhanced.db`
-- **Engine:** SQLite via [sql.js](https://github.com/sql-js/sql.js/) with FTS5
+- **Location:** `~/.config/opencode/memory-enhanced.db`
+- **Engine:** SQLite via [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) (native) with FTS5; falls back to [sql.js](https://github.com/sql-js/sql.js/) if unavailable
+- **Session scanner:** reads OpenCode's `opencode.db` directly via better-sqlite3 — handles 700MB+ databases without issue
 - **Embeddings:** Local ONNX-session (no external API)
 - **Tables:** memories, entities, relationships, conversation_arcs, concept_tags, learning_patterns, memory_links, scanned_sessions, curated_store, pending_memories, procedural_knowledge
 
