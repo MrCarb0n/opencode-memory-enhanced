@@ -15,7 +15,7 @@ export function createScanTool(client: any, projectPath: string) {
       },
       async execute(args: any) {
         const limit = (args.full as boolean) ? 500 : ((args.limit as number) || 50)
-        const source = String(args.source ?? "db").toLowerCase()
+        const source = String(args.source ?? "auto").toLowerCase()
 
         let stored = 0
         if (source === "db" || source === "opencode") {

@@ -2,7 +2,7 @@ import { getOne, runInsert, transaction, execSingle } from "./db"
 import { extractSessionMemories, type MemoryRecord } from "./extractor"
 import { linkEntity, discoverRelationships, autoLinkMemories } from "./entities"
 import { join } from "path"
-import { readFileSync, existsSync } from "fs"
+import { readFileSync, existsSync, statSync } from "fs"
 import { homedir, cpus } from "os"
 import { showToast } from "./helpers"
 import { IS_WIN } from "./constants"
@@ -44,6 +44,8 @@ async function queryOpenCodeDB(sql: string, params: any[] = []): Promise<any[]> 
     return result
   } catch {
     try {
+      // ponytail: skip sql.js for DBs > 100MB (crashes on large files), use API fallback instead
+      if (statSync(dbPath).size > 100 * 1024 * 1024) return []
       const buf = readFileSync(dbPath)
       const SQL = await getSqlJs()
       const odb = new SQL.Database(buf)
