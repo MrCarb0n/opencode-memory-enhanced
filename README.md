@@ -1,6 +1,6 @@
 # opencode-memory-enhanced
 
-Advanced autonomous memory plugin for [OpenCode](https://opencode.ai). Persistent, local, zero-cloud memory with hybrid search, knowledge graphs, session scanning, curated memory, and procedural skills.
+Advanced autonomous memory plugin for [OpenCode](https://opencode.ai). Persistent, local, zero-cloud memory with hybrid search, knowledge graphs, session scanning, curated memory, procedural skills, and **self-learning episodic memory**.
 
 ## Features
 
@@ -13,6 +13,8 @@ Advanced autonomous memory plugin for [OpenCode](https://opencode.ai). Persisten
 - **Procedural Knowledge** — recall and apply learned procedures and workflows from past sessions
 - **Memory Decay** — configurable relevance decay and access boost so stale memories fade and active ones stay fresh
 - **Automatic Entity Consolidation** — background entity pattern detection, relationship mining, and orphan cleanup
+- **Self-Learning Episodic Memory** — auto-captures tool executions into episodes, LLM-synthesizes decisions/patterns/outcomes, promotes successful patterns to reference memory, and retrieves relevant episodes predictively
+- **Background Pattern Learning** — clusters similar episodes into meta-patterns for cross-project knowledge transfer
 - **Toast Notifications** — non-intrusive in-app notifications for memory count, search matches, and system events
 - **All-Local** — SQLite via better-sqlite3 (native, large-DB safe) + local ONNX-session embeddings; zero data leaves your machine
 
@@ -51,6 +53,8 @@ Once installed, the plugin works silently:
 | `memory-export` | Export memories (JSON) and knowledge graph (SVG/DOT/JSON) with entity expansion |
 | `memory-scan` | Scan past sessions into memories (DB direct or API fallback) |
 
+*Episodic memory is fully automatic — no user-facing tools needed. It captures, synthesizes, and retrieves episodes in the background.*
+
 ## Configuration
 
 Config stored at `~/.config/opencode/memory-config.json`. View/edit via `memory-info {mode: config}`.
@@ -68,6 +72,14 @@ Key settings:
 | `enable_vectors` | `true` | Enable neural embeddings |
 | `background_consolidate` | `true` | Background entity detection |
 | `security_scan` | `true` | Scan for secrets in stored memories |
+| `episode_capture` | `true` | Auto-capture tool executions into episodes |
+| `episode_boundary_threshold` | `0.5` | Heuristic score threshold to auto-detect episode boundaries |
+| `pattern_promotion_threshold` | `0.7` | Success score threshold to promote patterns to reference memory |
+| `synthesis_enabled` | `true` | Enable LLM synthesis of completed episodes |
+| `predictive_retrieval` | `true` | Enable predictive episode retrieval during context injection |
+| `predictive_top_k` | `3` | Max episodes to inject per query |
+| `global_pattern_learning` | `true` | Enable background clustering into cross-project meta-patterns |
+| `cross_project_sharing` | `true` | Share promoted patterns across all projects |
 
 ## Database
 
@@ -96,6 +108,10 @@ lib/
   security.ts              — Secret scanning
   types.ts                 — Type definitions, pattern matching
   utils.ts                 — Tokenization, cosine similarity
+  episodes.ts              — Episode state manager, boundary detection, tool capture
+  episode-synthesis.ts     — LLM synthesis: decisions, patterns, outcome, anti-patterns
+  episode-retrieval.ts     — Vector search + predictive context injection
+  episode-patterns.ts      — Background clustering into meta-patterns
   tools/
     query.ts               — memory-query tool
     store.ts               — memory-store tool
@@ -107,6 +123,13 @@ lib/
     scan.ts                — memory-scan tool
     _shared.ts             — Shared tool utilities
 ```
+
+### Database Schema (Episodes)
+
+| Table | Purpose |
+|-------|---------|
+| `episodes` | Session-scoped tool execution traces with synthesized intent, outcome, decisions, patterns |
+| `episode_steps` | Individual tool calls with args, results, success/failure, duration |
 
 ## License
 

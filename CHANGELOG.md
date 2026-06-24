@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.2.0 (2026-06-24)
+
+- **Self-Learning Episodic Memory** — fully automatic episode capture, LLM synthesis, predictive retrieval, and background pattern learning
+  - Auto-captures tool executions into session-scoped episodes
+  - Auto-detects episode boundaries via heuristic scoring (completion words, topic shifts, step count)
+  - LLM synthesis extracts: intent, outcome summary, success score, decisions, patterns, anti-patterns, key entities
+  - Successful patterns (score ≥ 0.7) promoted to cross-project reference memory
+  - Vector search over completed episodes with cosine similarity + importance ranking
+  - Predictive context injection: relevant episodes injected into compacting + system prompt
+  - Background clustering of similar episodes into meta-patterns for knowledge transfer
+  - All-local LLM via ONNX-session; zero external API calls
+- **New Database Tables**: `episodes` (24 columns) + `episode_steps` (9 columns) with full FTS/vector support
+- **8 New Config Keys** (all default-on): `episode_capture`, `episode_boundary_threshold`, `pattern_promotion_threshold`, `synthesis_enabled`, `predictive_retrieval`, `predictive_top_k`, `global_pattern_learning`, `cross_project_sharing`
+- **New Modules**: `lib/episodes.ts`, `lib/episode-synthesis.ts`, `lib/episode-retrieval.ts`, `lib/episode-patterns.ts`
+- **TypeScript Build**: passes with zero errors
+
 ## 1.1.0 (2026-06-23)
 
 - **better-sqlite3** native SQLite dependency — handles large DBs (700MB+) without loading into memory
