@@ -26,7 +26,6 @@ function sanitizeArgs(args: Record<string, any>): Record<string, string> {
 
 export function onToolStart(sessionId: string, tool: string, args: any): void {
   const cfg = getConfig()
-  if (!cfg.episode_capture) return
   if (!cfg.tracked_tools.includes(tool)) return
 
   let state = activeEpisodes.get(sessionId)
@@ -60,7 +59,6 @@ export function onToolStart(sessionId: string, tool: string, args: any): void {
 
 export function onToolEnd(sessionId: string, tool: string, args: any, result: any, error?: Error): void {
   const cfg = getConfig()
-  if (!cfg.episode_capture) return
   if (!cfg.tracked_tools.includes(tool)) return
 
   const state = activeEpisodes.get(sessionId)
@@ -90,8 +88,6 @@ function summarizeResult(result: any): string {
 }
 
 export async function detectBoundary(sessionId: string, userText: string): Promise<number> {
-  const cfg = getConfig()
-  if (!cfg.episode_capture) return 0
 
   const state = activeEpisodes.get(sessionId)
   if (!state || state.steps.length === 0) return 0
@@ -107,7 +103,7 @@ export async function detectBoundary(sessionId: string, userText: string): Promi
   const topicShift = state.steps.length > 5 && userText.length > 20
   if (topicShift) score += 0.15
 
-  if (score >= cfg.episode_boundary_threshold) return score
+  if (score >= 0.5) return score
 
   const lastMsg = state.intent
   if (lastMsg && lastMsg.length > 10 && userText.length > 10) {

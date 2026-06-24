@@ -158,7 +158,7 @@ export default (async ({ client, project, directory }: PluginInput) => {
         }
 
         track(detectBoundary(input.sessionID, userText).then(async (score) => {
-          if (score >= cfg.episode_boundary_threshold) {
+          if (score >= 0.5) {
             const episodeId = await finalizeEpisode(input.sessionID, projectPath)
             if (episodeId) {
               track(synthesizeEpisode(episodeId, callLLM))
@@ -287,8 +287,7 @@ export default (async ({ client, project, directory }: PluginInput) => {
           "auto_allow_keywords", "auto_deny_keywords", "tech_stack", "tag_patterns",
           "memory_type_patterns", "importance_patterns", "graph_type_colors", "write_approval",
           "agent_note_limit", "user_profile_limit", "security_scan", "background_consolidate",
-          "context_budget", "episode_capture", "episode_boundary_threshold", "pattern_promotion_threshold", "synthesis_enabled",
-          "predictive_retrieval", "cross_project_sharing"
+           "context_budget"
         ] as const
         for (const k of keys) {
           if (input[k] !== undefined) (current as any)[k] = input[k]

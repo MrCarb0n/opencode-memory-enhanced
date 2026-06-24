@@ -75,8 +75,6 @@ function parseJSON(text: string): SynthesizedEpisode | null {
 }
 
 export async function synthesizeEpisode(episodeId: number, callLLM: (prompt: string) => Promise<string>): Promise<void> {
-  const cfg = getConfig()
-  if (!cfg.synthesis_enabled) return
 
   const episode = getEpisode(episodeId)
   if (!episode || episode.intent) return
@@ -105,7 +103,7 @@ export async function synthesizeEpisode(episodeId: number, callLLM: (prompt: str
       execSingle(`UPDATE "${EP}" SET intent_embedding = ? WHERE id = ?`, [serializeEmbedding(vec), episodeId])
     }
 
-    if (parsed.success_score >= cfg.pattern_promotion_threshold) {
+    if (parsed.success_score >= 0.7) {
       for (const p of parsed.patterns) {
         if (p.type === "success") {
           const content = `[Pattern] ${p.pattern} — ${p.applicability}`

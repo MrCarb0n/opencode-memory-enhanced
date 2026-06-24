@@ -8,10 +8,7 @@ const M = Tables.memories
 const LP = Tables.learningPatterns
 
 export async function clusterEpisodes(projectPath?: string): Promise<number> {
-  const cfg = getConfig()
-  if (!cfg.global_pattern_learning) return 0
-
-  const where = projectPath && cfg.cross_project_sharing
+  const where = projectPath
     ? `WHERE (project_path = ? OR project_path = 'global')`
     : projectPath
       ? `WHERE project_path = ?`

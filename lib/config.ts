@@ -29,14 +29,6 @@ export interface MemoryConfig {
   security_scan: boolean
   background_consolidate: boolean
   context_budget: number
-  episode_capture: boolean
-  episode_boundary_threshold: number
-  pattern_promotion_threshold: number
-  synthesis_enabled: boolean
-  predictive_retrieval: boolean
-  predictive_top_k: number
-  global_pattern_learning: boolean
-  cross_project_sharing: boolean
 }
 
 let _cfg: MemoryConfig | null = null
@@ -135,14 +127,6 @@ const DEFAULTS: MemoryConfig = {
   security_scan: true,
   background_consolidate: true,
   context_budget: 2000,
-  episode_capture: true,
-  episode_boundary_threshold: 0.5,
-  pattern_promotion_threshold: 0.7,
-  synthesis_enabled: true,
-  predictive_retrieval: true,
-  predictive_top_k: 3,
-  global_pattern_learning: true,
-  cross_project_sharing: true,
 }
 
 export function loadConfig(): MemoryConfig {

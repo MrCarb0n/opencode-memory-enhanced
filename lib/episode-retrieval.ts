@@ -34,13 +34,10 @@ function formatEpisodeForContext(e: any): string {
 }
 
 export async function searchEpisodes(query: string, limit = 5, projectPath?: string): Promise<any[]> {
-  const cfg = getConfig()
-  if (!cfg.predictive_retrieval) return []
-
   const queryVec = await embed(query)
   if (queryVec.length === 0) return []
 
-  const where = projectPath && cfg.cross_project_sharing
+  const where = projectPath
     ? `(project_path = ? OR project_path = 'global')`
     : projectPath
       ? `project_path = ?`
@@ -70,10 +67,7 @@ export async function searchEpisodes(query: string, limit = 5, projectPath?: str
 }
 
 export async function injectEpisodeContext(query: string, budget: number, projectPath?: string): Promise<string> {
-  const cfg = getConfig()
-  if (!cfg.predictive_retrieval) return ""
-
-  const episodes = await searchEpisodes(query, cfg.predictive_top_k, projectPath)
+  const episodes = await searchEpisodes(query, 3, projectPath)
   if (episodes.length === 0) return ""
 
   const blocks = episodes.map(formatEpisodeForContext)
@@ -81,6 +75,4 @@ export async function injectEpisodeContext(query: string, budget: number, projec
   return block.length <= budget ? block : ""
 }
 
-export function getPredictiveTopK(): number {
-  return getConfig().predictive_top_k
-}
+
