@@ -9,6 +9,10 @@ import { ensureSchema } from "./lib/schema"
 
 import { buildCuratedBlock } from "./lib/curated"
 import { detectEntityPatterns } from "./lib/entities"
+import { onToolStart, onToolEnd, detectBoundary, finalizeEpisode, abortEpisode, getActiveEpisode, getEpisodeCount } from "./lib/episodes"
+import { synthesizeEpisode } from "./lib/episode-synthesis"
+import { injectEpisodeContext } from "./lib/episode-retrieval"
+import { clusterEpisodes } from "./lib/episode-patterns"
 
 let _curatedBlock: string | null = null
 let _isConsolidating = false
@@ -37,6 +41,23 @@ export default (async ({ client, project, directory }: PluginInput) => {
   }
 
   const projectPath = project.worktree ?? directory
+
+  async function callLLM(prompt: string): Promise<string> {
+    const c = client as any
+    try {
+      if (typeof c.llm?.chat === "function") {
+        const resp = await c.llm.chat({ messages: [{ role: "user", content: prompt }] })
+        return resp?.message?.content || ""
+      }
+    } catch { }
+    try {
+      if (typeof c.chat?.complete === "function") {
+        const resp = await c.chat.complete({ messages: [{ role: "user", content: prompt }] })
+        return resp?.content || ""
+      }
+    } catch { }
+    return ""
+  }
 
   try {
     client.app.log({ body: { service: "memory-enhanced", level: "info", message: "Plugin initialized" } })
@@ -90,7 +111,9 @@ export default (async ({ client, project, directory }: PluginInput) => {
           case "session.idle": {
             applyMemoryDecay()
             closeArc(event.properties.sessionID)
+            abortEpisode(event.properties.sessionID)
             setTimeout(() => detectEntityPatterns(projectPath), 0)
+            setTimeout(() => track(clusterEpisodes(projectPath)), 100)
             scheduleSave()
             break
           }
@@ -133,10 +156,22 @@ export default (async ({ client, project, directory }: PluginInput) => {
             }
           }).catch(() => {}))
         }
+
+        track(detectBoundary(input.sessionID, userText).then(async (score) => {
+          if (score >= cfg.episode_boundary_threshold) {
+            const episodeId = await finalizeEpisode(input.sessionID, projectPath)
+            if (episodeId) {
+              track(synthesizeEpisode(episodeId, callLLM))
+              if (getEpisodeCount() % 5 === 0) {
+                track(clusterEpisodes(projectPath))
+              }
+            }
+          }
+        }).catch(() => {}))
       } catch (e) { console.error("[memory-enhanced] chat.message error:", e) }
     },
 
-    "experimental.session.compacting": async (_input: any, output: any) => {
+    "experimental.session.compacting": async (input: any, output: any) => {
       if (!_dbReady) return
       try {
         captureFrozenSnapshot()
@@ -152,6 +187,11 @@ export default (async ({ client, project, directory }: PluginInput) => {
           if (block.length <= budget) { output.context.push(block); budget -= block.length }
         }
         if (_curatedBlock && _curatedBlock.length <= budget) output.context.push(`\n# Curated Memory\n${_curatedBlock}\n`)
+        const userText = input?.sessionID ? (getActiveEpisode(input.sessionID)?.intent || "") : ""
+        if (userText.length > 3) {
+          const epBlock = await injectEpisodeContext(userText, budget, projectPath)
+          if (epBlock) { output.context.push(epBlock); budget -= epBlock.length }
+        }
       } catch (e) { console.error("[memory-enhanced] compacting error:", e) }
     },
 
@@ -159,6 +199,8 @@ export default (async ({ client, project, directory }: PluginInput) => {
       if (!_dbReady) return
       try {
         const toolName = String(input?.tool ?? "")
+        onToolStart(input.sessionID, toolName, output?.args || {})
+
         const query = output?.args?.command
           ? (output.args.command.match(/\b\w{4,}\b/g) || []).slice(0, 5).join(" ")
           : (output?.args?.filePath ?? output?.args?.pattern ?? "")
@@ -179,6 +221,8 @@ export default (async ({ client, project, directory }: PluginInput) => {
       if (!_dbReady) return
       try {
         const toolName = String(input?.tool ?? "")
+        onToolEnd(input.sessionID, toolName, input?.args || {}, input?.result, input?.error)
+
         if (!getConfig().tracked_tools.includes(toolName)) return
         const cmd = String(input?.args?.command ?? input?.args?.filePath ?? input?.args?.pattern ?? "")
         if (!cmd || cmd.length <= 5) return
@@ -210,7 +254,7 @@ export default (async ({ client, project, directory }: PluginInput) => {
       } catch (e) { console.error("[memory-enhanced] permission.ask error:", e) }
     },
 
-    "experimental.chat.system.transform": async (_input: any, output: any) => {
+    "experimental.chat.system.transform": async (input: any, output: any) => {
       if (!_dbReady) return
       try {
         captureFrozenSnapshot()
@@ -226,6 +270,11 @@ export default (async ({ client, project, directory }: PluginInput) => {
           if (block.length <= budget) { output.system.push(block); budget -= block.length }
         }
         if (_curatedBlock && _curatedBlock.length <= budget) output.system.push(`\n## Curated Memory (frozen at session start)\n${_curatedBlock}\n`)
+        const userText = input?.sessionID ? (getActiveEpisode(input.sessionID)?.intent || "") : ""
+        if (userText.length > 3) {
+          const epBlock = await injectEpisodeContext(userText, budget, projectPath)
+          if (epBlock) { output.system.push(epBlock); budget -= epBlock.length }
+        }
       } catch (e) { console.error("[memory-enhanced] system.transform error:", e) }
     },
 
@@ -238,7 +287,8 @@ export default (async ({ client, project, directory }: PluginInput) => {
           "auto_allow_keywords", "auto_deny_keywords", "tech_stack", "tag_patterns",
           "memory_type_patterns", "importance_patterns", "graph_type_colors", "write_approval",
           "agent_note_limit", "user_profile_limit", "security_scan", "background_consolidate",
-          "context_budget"
+          "context_budget", "episode_capture", "episode_boundary_threshold", "pattern_promotion_threshold", "synthesis_enabled",
+          "predictive_retrieval", "cross_project_sharing"
         ] as const
         for (const k of keys) {
           if (input[k] !== undefined) (current as any)[k] = input[k]

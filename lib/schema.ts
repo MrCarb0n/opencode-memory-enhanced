@@ -11,8 +11,49 @@ const SS = Tables.scannedSessions
 const CS = Tables.curatedStore
 const PM = Tables.pendingMemories
 const PK = Tables.proceduralKnowledge
+const EP = Tables.episodes
+const ES = Tables.episodeSteps
 
 export const SCHEMA_DDL: string[] = [
+  `CREATE TABLE IF NOT EXISTS "${EP}" (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL,
+    project_path TEXT DEFAULT 'global',
+    intent TEXT,
+    intent_embedding TEXT,
+    status TEXT DEFAULT 'active' CHECK(status IN ('active','completed','failed','abandoned')),
+    started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    completed_at DATETIME,
+    duration_ms INTEGER,
+    step_count INTEGER DEFAULT 0,
+    tool_calls_json TEXT,
+    files_touched_json TEXT,
+    entities_json TEXT,
+    decisions_json TEXT,
+    patterns_json TEXT,
+    anti_patterns_json TEXT,
+    outcome_summary TEXT,
+    success_score REAL,
+    importance INTEGER DEFAULT 5,
+    relevance_score REAL DEFAULT 0.5,
+    access_count INTEGER DEFAULT 0,
+    last_accessed DATETIME,
+    is_global INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`,
+
+  `CREATE TABLE IF NOT EXISTS "${ES}" (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    episode_id INTEGER NOT NULL REFERENCES "${EP}"(id) ON DELETE CASCADE,
+    step_index INTEGER NOT NULL,
+    tool_name TEXT NOT NULL,
+    args_json TEXT,
+    result_summary TEXT,
+    success INTEGER DEFAULT 1,
+    duration_ms INTEGER,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`,
+
   `CREATE TABLE IF NOT EXISTS "${M}" (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     content TEXT NOT NULL,
@@ -148,6 +189,14 @@ export const INDEX_DDL: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_${PM}_status ON "${PM}"(status)`,
   `CREATE INDEX IF NOT EXISTS idx_${PK}_category ON "${PK}"(category)`,
   `CREATE INDEX IF NOT EXISTS idx_${PK}_name ON "${PK}"(name)`,
+  `CREATE INDEX IF NOT EXISTS idx_${EP}_session ON "${EP}"(session_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_${EP}_intent_embedding ON "${EP}"(intent_embedding)`,
+  `CREATE INDEX IF NOT EXISTS idx_${EP}_importance ON "${EP}"(importance)`,
+  `CREATE INDEX IF NOT EXISTS idx_${EP}_project ON "${EP}"(project_path)`,
+  `CREATE INDEX IF NOT EXISTS idx_${EP}_completed ON "${EP}"(completed_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_${EP}_global ON "${EP}"(is_global, importance DESC)`,
+  `CREATE INDEX IF NOT EXISTS idx_${ES}_episode ON "${ES}"(episode_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_${ES}_timestamp ON "${ES}"(timestamp)`,
 ]
 
 export function ensureSchema(db: any): void {

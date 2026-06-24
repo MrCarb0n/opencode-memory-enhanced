@@ -59,6 +59,8 @@ export const Tables = {
   curatedStore: "curated_store",
   pendingMemories: "pending_memories",
   proceduralKnowledge: "procedural_knowledge",
+  episodes: "episodes",
+  episodeSteps: "episode_steps",
 } as const
 
 export const CURATED_STORE_LIMITS = {

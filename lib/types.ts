@@ -1,6 +1,7 @@
 import { getConfig } from "./config"
 
 export type MemoryType = "user" | "feedback" | "project" | "reference"
+export type EpisodeStatus = "active" | "completed" | "failed" | "abandoned"
 
 // ─── Data Types ──────────────────────────────────────────────────
 export interface SearchResult {
@@ -17,6 +18,76 @@ export interface SearchResult {
   score: number
   similarity?: number
   embedding_score?: number
+}
+
+export interface Episode {
+  id: number
+  session_id: string
+  project_path: string
+  intent: string | null
+  intent_embedding: string | null
+  status: EpisodeStatus
+  started_at: string
+  completed_at: string | null
+  duration_ms: number | null
+  step_count: number
+  tool_calls_json: string | null
+  files_touched_json: string | null
+  entities_json: string | null
+  decisions_json: string | null
+  patterns_json: string | null
+  anti_patterns_json: string | null
+  outcome_summary: string | null
+  success_score: number | null
+  importance: number
+  relevance_score: number
+  access_count: number
+  last_accessed: string | null
+  is_global: number
+  created_at: string
+}
+
+export interface EpisodeStep {
+  id: number
+  episode_id: number
+  step_index: number
+  tool_name: string
+  args_json: string | null
+  result_summary: string | null
+  success: number
+  duration_ms: number | null
+  timestamp: string
+}
+
+export interface EpisodeState {
+  id: number | null
+  sessionId: string
+  projectPath: string
+  intent: string | null
+  steps: EpisodeStepInput[]
+  startTime: number
+  filesTouched: Set<string>
+  entities: Set<string>
+}
+
+export interface EpisodeStepInput {
+  tool: string
+  args: Record<string, any>
+  result: any
+  success: boolean
+  durationMs: number
+  timestamp: string
+}
+
+export interface SynthesizedEpisode {
+  intent: string
+  decisions: Array<{decision: string; rationale: string; confidence: number}>
+  patterns: Array<{pattern: string; type: 'success' | 'failure' | 'anti'; applicability: string}>
+  anti_patterns: string[]
+  outcome_summary: string
+  success_score: number
+  key_entities: string[]
+  tags: string[]
 }
 
 export function parsePattern(expr: string): RegExp | null {

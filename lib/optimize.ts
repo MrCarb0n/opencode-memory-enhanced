@@ -5,6 +5,7 @@ import { precomputeVector } from "./memory"
 import { embeddingStatus } from "./embeddings"
 import { detectEntityPatterns } from "./entities"
 import { getConfig } from "./config"
+import { clusterEpisodes } from "./episode-patterns"
 
 const YIELD_INTERVAL = 50
 
@@ -62,6 +63,9 @@ export async function runOptimize(
 
     patternsDetected = detectEntityPatterns(projectPath)
     if (patternsDetected > 0 && onMessage) onMessage(`Detected ${patternsDetected} entity patterns`)
+
+    const episodeClusters = await clusterEpisodes(projectPath)
+    if (episodeClusters > 0 && onMessage) onMessage(`Created ${episodeClusters} episode clusters`)
 
     getDb().exec("VACUUM")
   }
