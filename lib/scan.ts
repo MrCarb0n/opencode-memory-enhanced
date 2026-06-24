@@ -95,30 +95,26 @@ export async function scanFromOpenCodeDB(client: any, projectPath: string, limit
   for (const sid of unScannedIds) {
     try {
       const rows = await queryOpenCodeDB(
-        `SELECT data FROM message WHERE session_id = ? ORDER BY time_created`,
+        `SELECT data FROM part WHERE session_id = ? AND json_extract(data, '$.type') = 'text' ORDER BY time_created`,
         [sid]
       )
       for (const row of rows) {
         try {
-          const msg = JSON.parse(row.data)
-          if (msg.parts) {
-            for (const part of msg.parts) {
-              if (part.type === "text" && part.text) {
-                const records = extractSessionMemories(
-                  [{ content: part.text }],
-                  { sid, title: "", model: "", agent: "" },
-                  projectPath
-                )
-                allRecords.push(...records)
-              }
-            }
+          const part = JSON.parse(row.data)
+          if (part.text) {
+            const records = extractSessionMemories(
+              [{ data: JSON.stringify({ role: part.role || "user", parts: [{ type: "text", text: part.text }] }) }],
+              { sid, title: "", model: "", agent: "" },
+              projectPath
+            )
+            allRecords.push(...records)
           }
         } catch (e) {
-          console.debug("[memory-enhanced] failed to parse message:", e)
+          console.debug("[memory-enhanced] failed to parse part:", e)
         }
       }
     } catch (e) {
-      console.debug("[memory-enhanced] failed to read session messages:", e)
+      console.debug("[memory-enhanced] failed to read session parts:", e)
     }
   }
 
