@@ -120,7 +120,11 @@ export function now(): string {
 let _saveTimer: ReturnType<typeof setTimeout> | null = null
 
 export function scheduleSave(): void {
-  // WAL handles durability; this is a no-op for better-sqlite3
+  if (_saveTimer) return // already scheduled
+  _saveTimer = setTimeout(() => {
+    _saveTimer = null
+    saveDb()
+  }, 500)
 }
 
 export function stopAutoSave(): void {

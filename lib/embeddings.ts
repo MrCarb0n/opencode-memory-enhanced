@@ -3,6 +3,9 @@ import { tokenize } from "./utils"
 // ─── Configuration ────────────────────────────────────────────────
 const EMBEDDING_DIM = 256
 const VOCAB_SIZE = 8192
+const EMBED_CACHE_MAX = 100
+
+const _embedCache = new Map<string, number[]>()
 
 // ─── Deterministic Random Projection Matrix ───────────────────────
 // Fixed seed ensures same matrix across sessions.
@@ -56,6 +59,11 @@ function hashingVectorize(text: string): Float32Array {
 
 // ─── Embed Text ───────────────────────────────────────────────────
 export async function embed(text: string): Promise<number[]> {
+  await Promise.resolve() // yield event loop
+
+  const cached = _embedCache.get(text)
+  if (cached) return cached
+
   try {
     const tfidf = hashingVectorize(text)
     const matrix = getProjectionMatrix()
@@ -84,7 +92,16 @@ export async function embed(text: string): Promise<number[]> {
       for (let i = 0; i < EMBEDDING_DIM; i++) result[i] /= norm
     }
 
-    return Array.from(result)
+    const vec = Array.from(result)
+
+    // LRU eviction
+    if (_embedCache.size >= EMBED_CACHE_MAX) {
+      const firstKey = _embedCache.keys().next().value
+      if (firstKey) _embedCache.delete(firstKey)
+    }
+    _embedCache.set(text, vec)
+
+    return vec
   } catch (e) {
     console.error("[memory-enhanced] Embedding failed:", e)
     return []

@@ -24,19 +24,25 @@ description: "Skill for the Cluster_9 area of opencode-memory-enhanced. 6 symbol
 
 Start here when exploring this area:
 
-- **`initDb`** (Function) — `lib/db.ts:21`
-- **`ensureSchema`** (Function) — `lib/schema.ts:153`
+- **`initDb`** (Function) — `lib/db.ts:22`
+- **`ensureSchema`** (Function) — `lib/schema.ts:201`
 
 ## Key Symbols
 
 | Symbol | Type | File | Line |
 |--------|------|------|------|
-| `initDb` | Function | `lib/db.ts` | 21 |
-| `ensureSchema` | Function | `lib/schema.ts` | 153 |
-| `ensureDataDir` | Function | `lib/db.ts` | 11 |
-| `getDbPath` | Function | `lib/db.ts` | 17 |
-| `runMigrations` | Function | `lib/db.ts` | 40 |
-| `runPendingMigrations` | Function | `lib/db.ts` | 53 |
+| `initDb` | Function | `lib/db.ts` | 22 |
+| `ensureSchema` | Function | `lib/schema.ts` | 201 |
+| `ensureDataDir` | Function | `lib/db.ts` | 12 |
+| `getDbPath` | Function | `lib/db.ts` | 18 |
+| `runMigrations` | Function | `lib/db.ts` | 58 |
+| `runPendingMigrations` | Function | `lib/db.ts` | 71 |
+
+## Execution Flows
+
+| Flow | Type | Steps |
+|------|------|-------|
+| `InitDb → RunMigrations` | intra_community | 3 |
 
 ## How to Explore
 

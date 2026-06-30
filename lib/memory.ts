@@ -10,6 +10,7 @@ import { showToast } from "./helpers"
 const M = Tables.memories
 
 export const pendingEmbeds: Promise<unknown>[] = []
+const PENDING_EMBEDS_MAX = 5
 
 // ─── Embedding-backed precomputeVector ────────────────────────────
 // Generates a semantic embedding via random projection of TF-IDF features.
@@ -166,6 +167,11 @@ export function autoRemember(client: any, text: string, sessionId: string, proje
   const p = precomputeVector(clean).then((emb) => {
     if (memoryId > 0 && emb) execSingle(`UPDATE "${M}" SET embedding = ? WHERE id = ?`, [emb, memoryId])
   }).catch((e) => console.debug("[memory-enhanced] embedding failed:", e))
+
+  // Cap pending embeddings to prevent unbounded growth
+  if (pendingEmbeds.length >= PENDING_EMBEDS_MAX) {
+    pendingEmbeds.shift() // FIFO eviction
+  }
   pendingEmbeds.push(p)
   p.finally(() => { const i = pendingEmbeds.indexOf(p); if (i >= 0) pendingEmbeds.splice(i, 1) })
 }

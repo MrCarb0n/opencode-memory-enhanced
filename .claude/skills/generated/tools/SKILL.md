@@ -1,67 +1,67 @@
 ---
 name: tools
-description: "Skill for the Tools area of opencode-memory-enhanced. 71 symbols across 21 files."
+description: "Skill for the Tools area of opencode-memory-enhanced. 84 symbols across 24 files."
 ---
 
 # Tools
 
-71 symbols | 21 files | Cohesion: 60%
+84 symbols | 24 files | Cohesion: 63%
 
 ## When to Use
 
 - Working with code in `lib/`
-- Understanding how buildFtsQuery, searchFts5, embed work
+- Understanding how getAll, buildFtsQuery, searchFts5 work
 - Modifying tools-related functionality
 
 ## Key Files
 
 | File | Symbols |
 |------|---------|
-| `lib/db.ts` | buildFtsQuery, searchFts5, getDb, stopAutoSave, saveDb (+4) |
-| `lib/embeddings.ts` | mulberry32, getProjectionMatrix, embed, vectorCosineSimilarity, deserializeEmbedding (+3) |
+| `lib/db.ts` | getAll, buildFtsQuery, searchFts5, execSingle, getOne (+6) |
+| `lib/embeddings.ts` | mulberry32, getProjectionMatrix, embed, vectorCosineSimilarity, serializeEmbedding (+3) |
+| `lib/entities.ts` | cleanupOrphanEntities, extractEntities, linkEntity, getEntityOrCreate, discoverRelationships (+2) |
 | `lib/curated.ts` | getCuratedEntries, getCuratedUsage, addCuratedEntry, replaceCuratedEntry, removeCuratedEntry (+1) |
 | `lib/memory.ts` | vectorSearch, hybridSearch, scoreMemories, autoRemember, precomputeVector |
-| `lib/entities.ts` | extractEntities, linkEntity, discoverRelationships, autoLinkMemories, getEntityOrCreate |
-| `lib/utils.ts` | freqMap, cosineSimilarity, tokenize, truncate |
+| `lib/episodes.ts` | updateEpisodeEmbedding, getRecentEpisodes, abortEpisode, finalizeEpisode |
+| `memory-enhanced.ts` | permission.ask, closeArc, dispose, config |
 | `lib/scan.ts` | insertRecords, getOpenCodeDBPath, queryOpenCodeDB, scanFromOpenCodeDB |
+| `lib/utils.ts` | tokenize, freqMap, cosineSimilarity, truncate |
 | `lib/tools/info.ts` | createInfoTool, execute, validate, count |
-| `memory-enhanced.ts` | tool.execute.before, dispose, config |
-| `lib/helpers.ts` | sizeBucketKey, sameBucket, showToast |
 
 ## Entry Points
 
 Start here when exploring this area:
 
-- **`buildFtsQuery`** (Function) — `lib/db.ts:114`
-- **`searchFts5`** (Function) — `lib/db.ts:141`
+- **`getAll`** (Function) — `lib/db.ts:101`
+- **`buildFtsQuery`** (Function) — `lib/db.ts:141`
+- **`searchFts5`** (Function) — `lib/db.ts:168`
 - **`embed`** (Function) — `lib/embeddings.ts:57`
 - **`vectorCosineSimilarity`** (Function) — `lib/embeddings.ts:94`
-- **`deserializeEmbedding`** (Function) — `lib/embeddings.ts:111`
 
 ## Key Symbols
 
 | Symbol | Type | File | Line |
 |--------|------|------|------|
-| `buildFtsQuery` | Function | `lib/db.ts` | 114 |
-| `searchFts5` | Function | `lib/db.ts` | 141 |
+| `getAll` | Function | `lib/db.ts` | 101 |
+| `buildFtsQuery` | Function | `lib/db.ts` | 141 |
+| `searchFts5` | Function | `lib/db.ts` | 168 |
 | `embed` | Function | `lib/embeddings.ts` | 57 |
 | `vectorCosineSimilarity` | Function | `lib/embeddings.ts` | 94 |
+| `serializeEmbedding` | Function | `lib/embeddings.ts` | 107 |
 | `deserializeEmbedding` | Function | `lib/embeddings.ts` | 111 |
 | `embeddingStatus` | Function | `lib/embeddings.ts` | 123 |
+| `cleanupOrphanEntities` | Function | `lib/entities.ts` | 179 |
+| `clusterEpisodes` | Function | `lib/episode-patterns.ts` | 9 |
+| `searchEpisodes` | Function | `lib/episode-retrieval.ts` | 35 |
+| `updateEpisodeEmbedding` | Function | `lib/episodes.ts` | 169 |
+| `getRecentEpisodes` | Function | `lib/episodes.ts` | 187 |
 | `hybridSearch` | Function | `lib/memory.ts` | 75 |
 | `scoreMemories` | Function | `lib/memory.ts` | 174 |
-| `tool.execute.before` | Function | `memory-enhanced.ts` | 157 |
-| `getDb` | Function | `lib/db.ts` | 66 |
-| `stopAutoSave` | Function | `lib/db.ts` | 102 |
-| `saveDb` | Function | `lib/db.ts` | 109 |
-| `sameBucket` | Function | `lib/helpers.ts` | 12 |
-| `runOptimize` | Function | `lib/optimize.ts` | 17 |
-| `dedupLoop` | Function | `lib/tools/maintain.ts` | 27 |
-| `freqMap` | Function | `lib/utils.ts` | 8 |
-| `cosineSimilarity` | Function | `lib/utils.ts` | 14 |
-| `dispose` | Function | `memory-enhanced.ts` | 249 |
-| `getOne` | Function | `lib/db.ts` | 74 |
-| `runInsert` | Function | `lib/db.ts` | 82 |
+| `permission.ask` | Function | `memory-enhanced.ts` | 233 |
+| `execSingle` | Function | `lib/db.ts` | 93 |
+| `getOne` | Function | `lib/db.ts` | 97 |
+| `runInsert` | Function | `lib/db.ts` | 105 |
+| `now` | Function | `lib/db.ts` | 115 |
 
 ## Execution Flows
 
@@ -75,20 +75,19 @@ Start here when exploring this area:
 | `Experimental.session.compacting → GetAll` | cross_community | 6 |
 | `Experimental.chat.system.transform → GetAll` | cross_community | 6 |
 | `Chat.message → ParsePattern` | cross_community | 5 |
-| `Execute → BuildFtsQuery` | intra_community | 4 |
-| `Execute → GetAll` | cross_community | 4 |
+| `InjectEpisodeContext → Tokenize` | cross_community | 5 |
+| `InjectEpisodeContext → Mulberry32` | cross_community | 5 |
 
 ## Connected Areas
 
 | Area | Connections |
 |------|-------------|
-| Cluster_11 | 15 calls |
-| Cluster_4 | 14 calls |
-| Cluster_13 | 13 calls |
+| Cluster_4 | 15 calls |
+| Cluster_14 | 1 calls |
 
 ## How to Explore
 
-1. `context({name: "buildFtsQuery"})` — see callers and callees
+1. `context({name: "getAll"})` — see callers and callees
 2. `query({search_query: "tools"})` — find related execution flows
 3. Read key files listed above for implementation details
 4. `explain({target: "<file or symbol>"})` — persisted taint findings (source→sink data flows), when indexed with `--pdg`
