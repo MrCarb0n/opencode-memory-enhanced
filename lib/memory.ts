@@ -158,20 +158,18 @@ const memoryId = runInsert(
      `INSERT INTO "${M}" (content, type, scope, importance, session_id, relevance_score, keywords, tags, project_path) VALUES (?, ?, 'project', ?, ?, 0.5, ?, ?, ?)`,
      [clean, memoryType, importance, sessionId, keywords, autoTags, projectPath]
    )
-   linkEntity(clean, memoryId, projectPath)
-   discoverRelationships(memoryId)
-   autoLinkMemories(memoryId)
-   showToast(client, `Stored: ${clean.substring(0, 40)}`, "success", 2000)
+  linkEntity(clean, memoryId, projectPath)
+  discoverRelationships(memoryId)
+  autoLinkMemories(memoryId)
 
-   // Generate embedding async (non-blocking) with progress toast
-   const toastId = `embed-${memoryId}`
-   showToast(client, "Indexing...", "info", 0, toastId) // persistent toast
-   const p = precomputeVector(clean, (pct) => {
-     showToast(client, `Indexing ${pct}%`, "info", 0, toastId)
-   }).then((emb) => {
-     if (memoryId > 0 && emb) execSingle(`UPDATE "${M}" SET embedding = ? WHERE id = ?`, [emb, memoryId])
-     showToast(client, `Stored: ${clean.substring(0, 40)}`, "success", 2000, toastId)
-   }).catch((e) => console.debug("[memory-enhanced] embedding failed:", e))
+  // Generate embedding async (non-blocking) with progress toast
+  showToast(client, "Memory: indexing...", "info", 0)
+  const p = precomputeVector(clean, (pct) => {
+    showToast(client, `Memory: indexing ${pct}%`, "info", 2000)
+  }).then((emb) => {
+    if (memoryId > 0 && emb) execSingle(`UPDATE "${M}" SET embedding = ? WHERE id = ?`, [emb, memoryId])
+    showToast(client, `Memory: ${clean.substring(0, 40)}`, "success", 2000)
+  }).catch((e) => console.debug("[memory-enhanced] embedding failed:", e))
 
   // Cap pending embeddings to prevent unbounded growth
   if (pendingEmbeds.length >= PENDING_EMBEDS_MAX) {
