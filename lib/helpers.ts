@@ -3,7 +3,9 @@ import { getAll } from "./db"
 import { Paths } from "./constants"
 
 export function showToast(client: any, message: string, variant: "info" | "success" | "warning" | "error" = "info", duration = 3000, id?: string) {
-  try { client.tui?.showToast?.({ body: { title: "Memory", message, variant, duration, ...(id ? { id } : {}) } }) } catch (e) { console.debug("[memory-enhanced] showToast failed:", e) }
+  setTimeout(() => {
+    try { client.tui?.showToast?.({ body: { title: "Memory", message, variant, duration, ...(id ? { id } : {}) } }) } catch (e) { console.debug("[memory-enhanced] showToast failed:", e) }
+  }, 0)
 }
 
 function sizeBucketKey(content: string): number {
