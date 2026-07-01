@@ -197,6 +197,9 @@ export const INDEX_DDL: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_${EP}_global ON "${EP}"(is_global, importance DESC)`,
   `CREATE INDEX IF NOT EXISTS idx_${ES}_episode ON "${ES}"(episode_id)`,
   `CREATE INDEX IF NOT EXISTS idx_${ES}_timestamp ON "${ES}"(timestamp)`,
+  `CREATE INDEX IF NOT EXISTS idx_${CT}_memory_entity ON "${CT}"(memory_id, entity_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_${R}_source_target ON "${R}"(source_entity_id, target_entity_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_${ML}_source_target ON "${ML}"(source_memory_id, target_memory_id)`,
 ]
 
 export function ensureSchema(db: any): void {

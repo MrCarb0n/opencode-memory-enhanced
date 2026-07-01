@@ -124,8 +124,6 @@ export function autoRemember(client: any, text: string, sessionId: string, proje
   const clean = text.substring(0, cfg.max_memory_length).trim()
   const importance = extractImportance(clean)
   const memoryType = detectMemoryType(clean)
-  const keywords = extractEntities(clean).join(",").toLowerCase()
-  const autoTags = generateAutoTags(clean).join(",")
 
   const existing = getOne(
     `SELECT id, importance, access_count FROM "${M}" WHERE content = ?`,
@@ -154,27 +152,26 @@ export function autoRemember(client: any, text: string, sessionId: string, proje
     return
   }
 
-const memoryId = runInsert(
-     `INSERT INTO "${M}" (content, type, scope, importance, session_id, relevance_score, keywords, tags, project_path) VALUES (?, ?, 'project', ?, ?, 0.5, ?, ?, ?)`,
-     [clean, memoryType, importance, sessionId, keywords, autoTags, projectPath]
-   )
-  linkEntity(clean, memoryId, projectPath)
-  discoverRelationships(memoryId)
-  autoLinkMemories(memoryId)
+  const memoryId = runInsert(
+    `INSERT INTO "${M}" (content, type, scope, importance, session_id, relevance_score, keywords, tags, project_path) VALUES (?, ?, 'project', ?, ?, 0.5, ?, ?, ?)`,
+    [clean, memoryType, importance, sessionId, "", "", projectPath]
+  )
 
-  // Generate embedding async (non-blocking)
-  showToast(client, "Memory: indexing...", "info", 1500)
-  const p = precomputeVector(clean).then((emb) => {
-    if (memoryId > 0 && emb) execSingle(`UPDATE "${M}" SET embedding = ? WHERE id = ?`, [emb, memoryId])
-    showToast(client, `Memory: ${clean.substring(0, 40)}`, "success", 2000)
-  }).catch((e) => console.debug("[memory-enhanced] embedding failed:", e))
-
-  // Cap pending embeddings to prevent unbounded growth
-  if (pendingEmbeds.length >= PENDING_EMBEDS_MAX) {
-    pendingEmbeds.shift() // FIFO eviction
-  }
-  pendingEmbeds.push(p)
-  p.finally(() => { const i = pendingEmbeds.indexOf(p); if (i >= 0) pendingEmbeds.splice(i, 1) })
+  // Defer heavy processing (entities, relationships, embedding) to next tick
+  showToast(client, `Memory: ${clean.substring(0, 40)}`, "success", 2000)
+  setTimeout(() => {
+    const keywords = extractEntities(clean).join(",").toLowerCase()
+    const autoTags = generateAutoTags(clean).join(",")
+    if (keywords || autoTags) {
+      execSingle(`UPDATE "${M}" SET keywords = ?, tags = ? WHERE id = ?`, [keywords, autoTags, memoryId])
+    }
+    linkEntity(clean, memoryId, projectPath)
+    discoverRelationships(memoryId)
+    autoLinkMemories(memoryId)
+    precomputeVector(clean).then((emb) => {
+      if (memoryId > 0 && emb) execSingle(`UPDATE "${M}" SET embedding = ? WHERE id = ?`, [emb, memoryId])
+    }).catch((e) => console.debug("[memory-enhanced] embedding failed:", e))
+  }, 0)
 }
 
 export { applyMemoryDecay } from "./optimize"
