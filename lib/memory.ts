@@ -162,11 +162,9 @@ const memoryId = runInsert(
   discoverRelationships(memoryId)
   autoLinkMemories(memoryId)
 
-  // Generate embedding async (non-blocking) with progress toast
-  showToast(client, "Memory: indexing...", "info", 0)
-  const p = precomputeVector(clean, (pct) => {
-    showToast(client, `Memory: indexing ${pct}%`, "info", 2000)
-  }).then((emb) => {
+  // Generate embedding async (non-blocking)
+  showToast(client, "Memory: indexing...", "info", 1500)
+  const p = precomputeVector(clean).then((emb) => {
     if (memoryId > 0 && emb) execSingle(`UPDATE "${M}" SET embedding = ? WHERE id = ?`, [emb, memoryId])
     showToast(client, `Memory: ${clean.substring(0, 40)}`, "success", 2000)
   }).catch((e) => console.debug("[memory-enhanced] embedding failed:", e))
