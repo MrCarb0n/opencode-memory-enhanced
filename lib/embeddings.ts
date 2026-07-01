@@ -58,7 +58,7 @@ function hashingVectorize(text: string): Float32Array {
 }
 
 // ─── Embed Text ───────────────────────────────────────────────────
-export async function embed(text: string): Promise<number[]> {
+export async function embed(text: string, onProgress?: (pct: number) => void): Promise<number[]> {
   await Promise.resolve() // yield event loop
 
   const cached = _embedCache.get(text)
@@ -76,11 +76,21 @@ export async function embed(text: string): Promise<number[]> {
 
     // Sparse projection: only iterate non-zero entries
     const result = new Float32Array(EMBEDDING_DIM)
-    for (const i of nonZero) {
+    const total = nonZero.length
+    const progressStep = Math.max(1, Math.floor(total / 10))
+    for (let idx = 0; idx < total; idx++) {
+      const i = nonZero[idx]
       const val = tfidf[i]
       const rowOffset = i * EMBEDDING_DIM
       for (let j = 0; j < EMBEDDING_DIM; j++) {
         result[j] += val * matrix[rowOffset + j]
+      }
+        if (onProgress && idx > 0 && idx % progressStep === 0) {
+        onProgress(Math.round((idx / total) * 100))
+        await Promise.resolve()
+      }
+      if (onProgress && idx === total - 1) {
+        onProgress(100)
       }
     }
 

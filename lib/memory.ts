@@ -15,10 +15,10 @@ const PENDING_EMBEDS_MAX = 5
 // ─── Embedding-backed precomputeVector ────────────────────────────
 // Generates a semantic embedding via random projection of TF-IDF features.
 // Falls back to TF-IDF frequency vector if model unavailable.
-export async function precomputeVector(content: string): Promise<string> {
+export async function precomputeVector(content: string, onProgress?: (pct: number) => void): Promise<string> {
   const cfg = getConfig()
   if (cfg.enable_vectors) {
-    const vec = await embed(content)
+    const vec = await embed(content, onProgress)
     if (vec.length > 0) return serializeEmbedding(vec)
   }
   // Fallback: TF-IDF frequency vector (legacy)
@@ -154,19 +154,24 @@ export function autoRemember(client: any, text: string, sessionId: string, proje
     return
   }
 
-  const memoryId = runInsert(
-    `INSERT INTO "${M}" (content, type, scope, importance, session_id, relevance_score, keywords, tags, project_path) VALUES (?, ?, 'project', ?, ?, 0.5, ?, ?, ?)`,
-    [clean, memoryType, importance, sessionId, keywords, autoTags, projectPath]
-  )
-  linkEntity(clean, memoryId, projectPath)
-  discoverRelationships(memoryId)
-  autoLinkMemories(memoryId)
-  showToast(client, `Stored: ${clean.substring(0, 40)}`, "success", 2000)
+const memoryId = runInsert(
+     `INSERT INTO "${M}" (content, type, scope, importance, session_id, relevance_score, keywords, tags, project_path) VALUES (?, ?, 'project', ?, ?, 0.5, ?, ?, ?)`,
+     [clean, memoryType, importance, sessionId, keywords, autoTags, projectPath]
+   )
+   linkEntity(clean, memoryId, projectPath)
+   discoverRelationships(memoryId)
+   autoLinkMemories(memoryId)
+   showToast(client, `Stored: ${clean.substring(0, 40)}`, "success", 2000)
 
-  // Generate embedding async (non-blocking)
-  const p = precomputeVector(clean).then((emb) => {
-    if (memoryId > 0 && emb) execSingle(`UPDATE "${M}" SET embedding = ? WHERE id = ?`, [emb, memoryId])
-  }).catch((e) => console.debug("[memory-enhanced] embedding failed:", e))
+   // Generate embedding async (non-blocking) with progress toast
+   const toastId = `embed-${memoryId}`
+   showToast(client, "Indexing...", "info", 0, toastId) // persistent toast
+   const p = precomputeVector(clean, (pct) => {
+     showToast(client, `Indexing ${pct}%`, "info", 0, toastId)
+   }).then((emb) => {
+     if (memoryId > 0 && emb) execSingle(`UPDATE "${M}" SET embedding = ? WHERE id = ?`, [emb, memoryId])
+     showToast(client, `Stored: ${clean.substring(0, 40)}`, "success", 2000, toastId)
+   }).catch((e) => console.debug("[memory-enhanced] embedding failed:", e))
 
   // Cap pending embeddings to prevent unbounded growth
   if (pendingEmbeds.length >= PENDING_EMBEDS_MAX) {

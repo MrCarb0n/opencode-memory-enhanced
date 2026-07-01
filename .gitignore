@@ -4,6 +4,9 @@ current_context.json
 node_modules/
 *.corrupt.*
 
+# AI agent instructions & generated skills
+.claude/
+
 # GitNexus knowledge graph index
 .gitnexus/
 

@@ -2,8 +2,8 @@ import { existsSync, writeFileSync, readFileSync } from "fs"
 import { getAll } from "./db"
 import { Paths } from "./constants"
 
-export function showToast(client: any, message: string, variant: "info" | "success" | "warning" | "error" = "info", duration = 3000) {
-  try { client.tui?.showToast?.({ body: { title: "Memory", message, variant, duration } }) } catch (e) { console.debug("[memory-enhanced] showToast failed:", e) }
+export function showToast(client: any, message: string, variant: "info" | "success" | "warning" | "error" = "info", duration = 3000, id?: string) {
+  try { client.tui?.showToast?.({ body: { title: "Memory", message, variant, duration, ...(id ? { id } : {}) } }) } catch (e) { console.debug("[memory-enhanced] showToast failed:", e) }
 }
 
 function sizeBucketKey(content: string): number {
