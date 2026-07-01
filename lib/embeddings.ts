@@ -7,6 +7,8 @@ const EMBED_CACHE_MAX = 100
 
 const _embedCache = new Map<string, number[]>()
 
+export function warmProjection(): void { getProjectionMatrix() }
+
 // ─── Deterministic Random Projection Matrix ───────────────────────
 // Fixed seed ensures same matrix across sessions.
 // Random projection preserves cosine similarity (JL lemma).

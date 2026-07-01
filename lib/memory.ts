@@ -51,7 +51,7 @@ async function vectorSearch(
   const whereClause = cleanExtra ? `AND ${cleanExtra}` : ""
   const rows = getAll(
     `SELECT id, content, type, scope, importance, relevance_score, access_count, tags, keywords, embedding
-     FROM "${M}" WHERE embedding != '' AND embedding IS NOT NULL ${whereClause} ORDER BY timestamp DESC LIMIT 2000`,
+     FROM "${M}" WHERE embedding != '' AND embedding IS NOT NULL ${whereClause} ORDER BY timestamp DESC LIMIT 200`,
     params
   )
 

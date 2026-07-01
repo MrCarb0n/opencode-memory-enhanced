@@ -1,6 +1,10 @@
+import { appendFileSync, mkdirSync } from "node:fs"
+import { join } from "node:path"
+import { homedir } from "node:os"
 import type { Plugin, PluginInput } from "@opencode-ai/plugin"
 import { initDb, getDb, execSingle, getOne, getAll, runInsert, now, saveDb, scheduleSave, stopAutoSave, initFts5, searchFts5 } from "./lib/db"
 import { autoRemember, applyMemoryDecay, hybridSearch, pendingEmbeds } from "./lib/memory"
+import { warmProjection } from "./lib/embeddings"
 import { loadConfig, getConfig, saveConfig } from "./lib/config"
 import { showToast, updateAgentsMd } from "./lib/helpers"
 import { scanFromOpenCodeDB } from "./lib/scan"
@@ -20,6 +24,18 @@ let _dbReady = false
 const _pending: Promise<unknown>[] = []
 function track(p: Promise<unknown>) { _pending.push(p); p.finally(() => { const i = _pending.indexOf(p); if (i >= 0) _pending.splice(i, 1) }) }
 
+const _timingPath = join(homedir(), ".config", "opencode", "timing.log")
+let _prevTs = Date.now()
+try { mkdirSync(join(homedir(), ".config", "opencode"), { recursive: true }) } catch {}
+function logTime(label: string) {
+  const ts = Date.now()
+  const delta = ts - _prevTs
+  _prevTs = ts
+  try {
+    appendFileSync(_timingPath, `${ts} ${label} delta=${delta}ms\n`, "utf-8")
+  } catch {}
+}
+
 export default (async ({ client, project, directory }: PluginInput) => {
   try {
     loadConfig()
@@ -31,6 +47,8 @@ export default (async ({ client, project, directory }: PluginInput) => {
 
     applyMemoryDecay()
     saveDb()
+
+    warmProjection()
 
     _dbReady = true
 
@@ -139,10 +157,11 @@ export default (async ({ client, project, directory }: PluginInput) => {
 
     "chat.message": async (input: any, output: any) => {
       if (!_dbReady) return
+      logTime("chat.message")
       try {
         captureFrozenSnapshot()
         const userText = output.parts?.filter((p: any) => p.type === "text").map((p: any) => p.text).join(" ") ?? ""
-        if (!userText) return
+        if (!userText) { logTime("chat.message.end"); return }
         const cfg = getConfig()
 
         if (cfg.auto_remember) {
@@ -150,29 +169,43 @@ export default (async ({ client, project, directory }: PluginInput) => {
         }
 
         if (userText.length > 3) {
-          track(hybridSearch(userText, 3, "m.scope = 'project' AND m.importance >= 5").then((results) => {
-            if (results.length > 0 && cfg.toast_enabled) {
-              showToast(client, `Context: ${results.length} related memories`, "info", 2000)
-            }
-          }).catch(() => {}))
+          const sid = input.sessionID
+          setTimeout(() => {
+            logTime("bg.hybridSearch")
+            track(hybridSearch(userText, 3, "m.scope = 'project' AND m.importance >= 5").then((results) => {
+              logTime("bg.hybridSearch.end")
+              if (results.length > 0 && cfg.toast_enabled) {
+                showToast(client, `Context: ${results.length} related memories`, "info", 2000)
+              }
+            }).catch(() => { logTime("bg.hybridSearch.err") }))
+          }, 0)
         }
 
-        track(detectBoundary(input.sessionID, userText).then(async (score) => {
-          if (score >= 0.5) {
-            const episodeId = await finalizeEpisode(input.sessionID, projectPath)
-            if (episodeId) {
-              track(synthesizeEpisode(episodeId, callLLM))
-              if (getEpisodeCount() % 5 === 0) {
-                track(clusterEpisodes(projectPath))
+        if (userText.length > 3) {
+          const sid = input.sessionID
+          setTimeout(() => {
+            logTime("bg.detectBoundary")
+            track(detectBoundary(sid, userText).then(async (score) => {
+              logTime("bg.detectBoundary.end")
+              if (score >= 0.5) {
+                const episodeId = await finalizeEpisode(sid, projectPath)
+                if (episodeId) {
+                  track(synthesizeEpisode(episodeId, callLLM))
+                  if (getEpisodeCount() % 5 === 0) {
+                    track(clusterEpisodes(projectPath))
+                  }
+                }
               }
-            }
-          }
-        }).catch(() => {}))
+            }).catch(() => { logTime("bg.detectBoundary.err") }))
+          }, 0)
+        }
       } catch (e) { console.error("[memory-enhanced] chat.message error:", e) }
+      logTime("chat.message.end")
     },
 
     "experimental.session.compacting": async (input: any, output: any) => {
       if (!_dbReady) return
+      logTime("compacting")
       try {
         captureFrozenSnapshot()
         let budget = getConfig().context_budget
@@ -193,10 +226,12 @@ export default (async ({ client, project, directory }: PluginInput) => {
           if (epBlock) { output.context.push(epBlock); budget -= epBlock.length }
         }
       } catch (e) { console.error("[memory-enhanced] compacting error:", e) }
+      logTime("compacting.end")
     },
 
     "tool.execute.before": async (input: any, output: any) => {
       if (!_dbReady) return
+      logTime(`tool.before:${String(input?.tool ?? "?")}`)
       try {
         const toolName = String(input?.tool ?? "")
         onToolStart(input.sessionID, toolName, output?.args || {})
@@ -215,10 +250,12 @@ export default (async ({ client, project, directory }: PluginInput) => {
           }
         }
       } catch (e) { console.error("[memory-enhanced] tool.execute.before error:", e) }
+      logTime(`tool.before.end:${String(input?.tool ?? "?")}`)
     },
 
     "tool.execute.after": async (input: any) => {
       if (!_dbReady) return
+      logTime(`tool.after:${String(input?.tool ?? "?")}`)
       try {
         const toolName = String(input?.tool ?? "")
         onToolEnd(input.sessionID, toolName, input?.args || {}, input?.result, input?.error)
@@ -229,6 +266,7 @@ export default (async ({ client, project, directory }: PluginInput) => {
         if (toolName === "bash" && getConfig().noise_commands.some((nc: string) => cmd.toLowerCase().includes(nc))) return
         runInsert("INSERT INTO memories (content, type, scope, importance, session_id, relevance_score, keywords) VALUES (?, 'tool-execution', 'project', 3, ?, 0.3, ?)", [cmd.substring(0, 200), input.sessionID, toolName])
       } catch (e) { console.error("[memory-enhanced] tool.execute.after error:", e) }
+      logTime(`tool.after.end:${String(input?.tool ?? "?")}`)
     },
 
     "permission.ask": async (input: any, output: any) => {
@@ -256,6 +294,7 @@ export default (async ({ client, project, directory }: PluginInput) => {
 
     "experimental.chat.system.transform": async (input: any, output: any) => {
       if (!_dbReady) return
+      logTime("system.transform")
       try {
         captureFrozenSnapshot()
         let budget = getConfig().context_budget
@@ -276,6 +315,7 @@ export default (async ({ client, project, directory }: PluginInput) => {
           if (epBlock) { output.system.push(epBlock); budget -= epBlock.length }
         }
       } catch (e) { console.error("[memory-enhanced] system.transform error:", e) }
+      logTime("system.transform.end")
     },
 
     "config": async (input: any) => {
