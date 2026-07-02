@@ -183,5 +183,5 @@ export function searchFts5(query: string, limit = 10, whereExtra = "", params: u
 }
 
 export function initFts5(): void {
-  // FTS5 triggers are created in migration; this is a no-op
+  // FTS5 table + triggers are created in ensureSchema (schema.ts)
 }

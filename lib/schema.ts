@@ -172,6 +172,29 @@ export const SCHEMA_DDL: string[] = [
   )`,
 ]
 
+export const FTS_DDL: string[] = [
+  `CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
+    content, type, tags, keywords,
+    content='memories',
+    content_rowid='id',
+    tokenize='porter unicode61'
+  )`,
+  `CREATE TRIGGER IF NOT EXISTS memories_fts_ai AFTER INSERT ON "${M}" BEGIN
+    INSERT INTO memories_fts(rowid, content, type, tags, keywords)
+    VALUES (new.id, new.content, new.type, new.tags, new.keywords);
+  END`,
+  `CREATE TRIGGER IF NOT EXISTS memories_fts_ad AFTER DELETE ON "${M}" BEGIN
+    INSERT INTO memories_fts(memories_fts, rowid, content, type, tags, keywords)
+    VALUES('delete', old.id, old.content, old.type, old.tags, old.keywords);
+  END`,
+  `CREATE TRIGGER IF NOT EXISTS memories_fts_au AFTER UPDATE ON "${M}" BEGIN
+    INSERT INTO memories_fts(memories_fts, rowid, content, type, tags, keywords)
+    VALUES('delete', old.id, old.content, old.type, old.tags, old.keywords);
+    INSERT INTO memories_fts(rowid, content, type, tags, keywords)
+    VALUES (new.id, new.content, new.type, new.tags, new.keywords);
+  END`,
+]
+
 export const INDEX_DDL: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_${M}_importance ON "${M}"(importance)`,
   `CREATE INDEX IF NOT EXISTS idx_${M}_session ON "${M}"(session_id)`,
@@ -204,5 +227,6 @@ export const INDEX_DDL: string[] = [
 
 export function ensureSchema(db: any): void {
   for (const ddl of SCHEMA_DDL) db.exec(ddl)
+  for (const fts of FTS_DDL) db.exec(fts)
   for (const idx of INDEX_DDL) db.exec(idx)
 }
